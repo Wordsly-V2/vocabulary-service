@@ -1,0 +1,63 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Course {
+  id          String  @id @db.Uuid
+  name        String
+  coverImageUrl String?
+
+  userId      String?  @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  lessons Lesson[]
+
+  @@map("courses")
+}
+
+model Lesson {
+  id          String  @id @db.Uuid
+  name        String
+  coverImageUrl String?
+  maxWords      Int?
+  orderIndex    Int?
+
+  courseId    String  @db.Uuid
+  course      Course  @relation(fields: [courseId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  words Word[]
+
+  @@map("lessons")
+}
+
+model Word {
+  id          String  @id @db.Uuid
+  word        String
+  meaning     String
+  pronunciation String?
+  partOfSpeech    String?
+  audioUrl    String?
+
+  lessonId    String  @db.Uuid
+  lesson      Lesson  @relation(fields: [lessonId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("words")
+}
