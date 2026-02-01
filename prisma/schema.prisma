@@ -17,7 +17,7 @@ model Course {
   name        String
   coverImageUrl String?
 
-  userId      String?  @db.Uuid
+  userLoginId      String?  @db.Uuid
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
