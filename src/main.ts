@@ -1,8 +1,15 @@
+import { AppModule } from '@/app.module';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  await app.listen(process.env.PORT ?? 3000);
+
+  const configService = app.get(ConfigService);
+  const appPort = configService.get<number>('port');
+
+  await app.listen(appPort as number);
+  console.log(`Vocabulary Service HTTP is running on port ${appPort}`);
 }
-bootstrap();
+
+void bootstrap();
