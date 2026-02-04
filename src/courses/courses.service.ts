@@ -54,4 +54,19 @@ export class CoursesService {
 
     return course;
   }
+
+  async deleteCourseById(
+    courseId: string,
+    userLoginId: string,
+  ): Promise<{ success: boolean }> {
+    await this.prisma.course.delete({
+      where: {
+        id: courseId,
+        userLoginId: userLoginId,
+      },
+    });
+    return {
+      success: true,
+    };
+  }
 }
