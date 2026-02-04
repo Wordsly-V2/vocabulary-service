@@ -1,26 +1,43 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
-import { CoursesService } from './courses.service';
-import { CreateManyCourses } from './dto/courses.dto';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { Course } from '@prisma/client';
+import { CoursesService } from './courses.service';
+import { CreateCourse } from './dto/courses.dto';
 
 @Controller('courses')
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
   @Get('user/:userLoginId')
-  async getCoursesByUserLoginId(@Param('userLoginId') userLoginId: string) {
-    return this.coursesService.getCoursesByUserLoginId(userLoginId);
+  async getCoursesByUserLoginId(
+    @Param('userLoginId') userLoginId: string,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query('orderByField') orderByField: 'createdAt' | 'name' = 'createdAt',
+    @Query('orderByDirection') orderByDirection: 'asc' | 'desc' = 'asc',
+  ) {
+    return this.coursesService.getCoursesByUserLoginId(
+      userLoginId,
+      page,
+      limit,
+      orderByField,
+      orderByDirection,
+    );
   }
 
   @Post('user/:userLoginId')
   async createCourse(
     @Param('userLoginId') userLoginId: string,
-    @Body() payload: CreateManyCourses,
+    @Body() payload: CreateCourse,
   ) {
-    return this.coursesService.createCoursesByUserLoginId(
-      userLoginId,
-      payload.courses,
-    );
+    return this.coursesService.createCoursesByUserLoginId(userLoginId, payload);
   }
 
   @Get('course/:courseId')

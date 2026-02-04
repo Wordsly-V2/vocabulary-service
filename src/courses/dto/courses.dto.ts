@@ -1,11 +1,5 @@
-import {
-  IsString,
-  IsOptional,
-  IsNotEmpty,
-  ValidateNested,
-  IsArray,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+import { Course } from '@prisma/client';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateCourse {
   @IsString()
@@ -17,9 +11,7 @@ export class CreateCourse {
   coverImageUrl?: string;
 }
 
-export class CreateManyCourses {
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateCourse)
-  courses: CreateCourse[];
-}
+export type CourseResponse = Omit<Course, 'createdAt' | 'updatedAt'> & {
+  totalLessonsCount: number;
+  totalWordsCount: number;
+};
