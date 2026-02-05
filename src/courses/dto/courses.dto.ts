@@ -39,3 +39,25 @@ export class CreateCourseLesson {
     @IsNumber()
     orderIndex?: number;
 }
+
+export class CreateWord {
+    @IsString()
+    @IsNotEmpty()
+    word: string;
+
+    @IsString()
+    @IsNotEmpty()
+    meaning: string;
+
+    @IsOptional()
+    @IsString()
+    pronunciation?: string;
+
+    @IsOptional()
+    @IsString()
+    partOfSpeech?: string;
+
+    @IsOptional()
+    @IsString()
+    audioUrl?: string;
+}

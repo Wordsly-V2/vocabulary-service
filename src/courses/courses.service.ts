@@ -8,6 +8,7 @@ import {
     CoursesTotalStats,
     CreateCourse,
     CreateCourseLesson,
+    CreateWord,
 } from './dto/courses.dto';
 
 @Injectable()
@@ -139,7 +140,18 @@ export class CoursesService {
                 userLoginId: userLoginId,
             },
             include: {
-                lessons: true,
+                lessons: {
+                    orderBy: {
+                        orderIndex: 'asc',
+                    },
+                    include: {
+                        words: {
+                            orderBy: {
+                                createdAt: 'asc',
+                            },
+                        },
+                    },
+                },
             },
         });
 
@@ -239,6 +251,85 @@ export class CoursesService {
             where: {
                 id: lessonId,
                 course: { userLoginId: userLoginId, id: courseId },
+            },
+        });
+        return {
+            success: true,
+        };
+    }
+
+    async createCourseLessonWord(
+        userLoginId: string,
+        courseId: string,
+        lessonId: string,
+        payload: CreateWord,
+    ): Promise<{ success: boolean }> {
+        const lesson = await this.prisma.lesson.findUnique({
+            where: {
+                id: lessonId,
+                course: { userLoginId: userLoginId, id: courseId },
+            },
+        });
+        if (!lesson) {
+            throw new NotFoundException('Lesson not found');
+        }
+
+        await this.prisma.word.create({
+            data: {
+                id: uuidv7(),
+                word: payload.word,
+                meaning: payload.meaning,
+                pronunciation: payload.pronunciation,
+                partOfSpeech: payload.partOfSpeech,
+                audioUrl: payload.audioUrl,
+                lessonId: lessonId,
+            },
+        });
+        return {
+            success: true,
+        };
+    }
+    async updateCourseLessonWordById(
+        userLoginId: string,
+        courseId: string,
+        lessonId: string,
+        wordId: string,
+        payload: Partial<CreateWord>,
+    ): Promise<{ success: boolean }> {
+        await this.prisma.word.update({
+            where: {
+                id: wordId,
+                lesson: {
+                    id: lessonId,
+                    course: {
+                        userLoginId: userLoginId,
+                        id: courseId,
+                    },
+                },
+            },
+            data: payload,
+        });
+        return {
+            success: true,
+        };
+    }
+
+    async deleteCourseLessonWordById(
+        userLoginId: string,
+        courseId: string,
+        lessonId: string,
+        wordId: string,
+    ): Promise<{ success: boolean }> {
+        await this.prisma.word.delete({
+            where: {
+                id: wordId,
+                lesson: {
+                    id: lessonId,
+                    course: {
+                        userLoginId: userLoginId,
+                        id: courseId,
+                    },
+                },
             },
         });
         return {

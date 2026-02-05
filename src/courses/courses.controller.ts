@@ -10,7 +10,11 @@ import {
 } from '@nestjs/common';
 import { Course } from '@prisma/client';
 import { CoursesService } from './courses.service';
-import { CreateCourse, CreateCourseLesson } from './dto/courses.dto';
+import {
+    CreateCourse,
+    CreateCourseLesson,
+    CreateWord,
+} from './dto/courses.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -116,6 +120,55 @@ export class CoursesController {
             userLoginId,
             courseId,
             lessonId,
+        );
+    }
+
+    @Post('user/:userLoginId/course/:courseId/lessons/:lessonId/words')
+    async createCourseLessonWord(
+        @Param('userLoginId') userLoginId: string,
+        @Param('courseId') courseId: string,
+        @Param('lessonId') lessonId: string,
+        @Body() payload: CreateWord,
+    ): Promise<{ success: boolean }> {
+        return this.coursesService.createCourseLessonWord(
+            userLoginId,
+            courseId,
+            lessonId,
+            payload,
+        );
+    }
+
+    @Put('user/:userLoginId/course/:courseId/lessons/:lessonId/words/:wordId')
+    async updateCourseLessonWordById(
+        @Param('userLoginId') userLoginId: string,
+        @Param('courseId') courseId: string,
+        @Param('lessonId') lessonId: string,
+        @Param('wordId') wordId: string,
+        @Body() payload: Partial<CreateWord>,
+    ): Promise<{ success: boolean }> {
+        return this.coursesService.updateCourseLessonWordById(
+            userLoginId,
+            courseId,
+            lessonId,
+            wordId,
+            payload,
+        );
+    }
+
+    @Delete(
+        'user/:userLoginId/course/:courseId/lessons/:lessonId/words/:wordId',
+    )
+    async deleteCourseLessonWordById(
+        @Param('userLoginId') userLoginId: string,
+        @Param('courseId') courseId: string,
+        @Param('lessonId') lessonId: string,
+        @Param('wordId') wordId: string,
+    ): Promise<{ success: boolean }> {
+        return this.coursesService.deleteCourseLessonWordById(
+            userLoginId,
+            courseId,
+            lessonId,
+            wordId,
         );
     }
 }
