@@ -147,7 +147,7 @@ export class CoursesService {
                     include: {
                         words: {
                             orderBy: {
-                                createdAt: 'asc',
+                                word: 'asc',
                             },
                         },
                     },
