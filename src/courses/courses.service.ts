@@ -55,11 +55,16 @@ export class CoursesService {
         limit: number = 10,
         orderByField: 'createdAt' | 'name' = 'createdAt',
         orderByDirection: 'asc' | 'desc' = 'asc',
+        searchQuery: string = '',
     ): Promise<Pagination<CourseResponse>> {
         const [courses, totalCourses] = await this.prisma.$transaction([
             this.prisma.course.findMany({
                 where: {
                     userLoginId: userLoginId,
+                    name: {
+                        contains: searchQuery,
+                        mode: 'insensitive',
+                    },
                 },
                 orderBy: {
                     [orderByField]: orderByDirection,
@@ -86,6 +91,10 @@ export class CoursesService {
             this.prisma.course.count({
                 where: {
                     userLoginId: userLoginId,
+                    name: {
+                        contains: searchQuery,
+                        mode: 'insensitive',
+                    },
                 },
             }),
         ]);

@@ -33,6 +33,7 @@ export class CoursesController {
         @Query('limit') limit: number,
         @Query('orderByField') orderByField: 'createdAt' | 'name' = 'createdAt',
         @Query('orderByDirection') orderByDirection: 'asc' | 'desc' = 'asc',
+        @Query('searchQuery') searchQuery: string = '',
     ) {
         return this.coursesService.getCoursesByUserLoginId(
             userLoginId,
@@ -40,6 +41,7 @@ export class CoursesController {
             limit,
             orderByField,
             orderByDirection,
+            searchQuery,
         );
     }
 
