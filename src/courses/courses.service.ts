@@ -393,4 +393,48 @@ export class CoursesService {
             success: true,
         };
     }
+
+    async moveWordsBulkToOtherLesson(
+        userLoginId: string,
+        courseId: string,
+        lessonId: string,
+        wordIds: string[],
+        targetLessonId: string,
+    ): Promise<{ success: boolean }> {
+        await this.prisma.word.updateMany({
+            where: {
+                id: {
+                    in: wordIds,
+                },
+                lesson: {
+                    id: lessonId,
+                    course: { userLoginId: userLoginId, id: courseId },
+                },
+            },
+            data: { lessonId: targetLessonId },
+        });
+        return {
+            success: true,
+        };
+    }
+
+    async deleteCourseLessonWordsBulk(
+        userLoginId: string,
+        courseId: string,
+        lessonId: string,
+        wordIds: string[],
+    ): Promise<{ success: boolean }> {
+        await this.prisma.word.deleteMany({
+            where: {
+                id: { in: wordIds },
+                lesson: {
+                    id: lessonId,
+                    course: { userLoginId: userLoginId, id: courseId },
+                },
+            },
+        });
+        return {
+            success: true,
+        };
+    }
 }

@@ -153,6 +153,39 @@ export class CoursesController {
         );
     }
 
+    @Put('user/:userLoginId/course/:courseId/lessons/:lessonId/words/bulk-move')
+    moveWordsBulkToOtherLesson(
+        @Param('userLoginId') userLoginId: string,
+        @Param('courseId') courseId: string,
+        @Param('lessonId') lessonId: string,
+        @Body() payload: { wordIds: string[]; targetLessonId: string },
+    ): Promise<{ success: boolean }> {
+        return this.coursesService.moveWordsBulkToOtherLesson(
+            userLoginId,
+            courseId,
+            lessonId,
+            payload.wordIds,
+            payload.targetLessonId,
+        );
+    }
+
+    @Delete(
+        'user/:userLoginId/course/:courseId/lessons/:lessonId/words/bulk-delete',
+    )
+    deleteWordsBulk(
+        @Param('userLoginId') userLoginId: string,
+        @Param('courseId') courseId: string,
+        @Param('lessonId') lessonId: string,
+        @Body() payload: { wordIds: string[] },
+    ): Promise<{ success: boolean }> {
+        return this.coursesService.deleteCourseLessonWordsBulk(
+            userLoginId,
+            courseId,
+            lessonId,
+            payload.wordIds,
+        );
+    }
+
     @Put('user/:userLoginId/course/:courseId/lessons/:lessonId/words/:wordId')
     async updateCourseLessonWordById(
         @Param('userLoginId') userLoginId: string,
