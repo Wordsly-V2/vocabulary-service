@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { Course } from '@prisma/client';
 import { CoursesService } from './courses.service';
-import { CreateCourse } from './dto/courses.dto';
+import { CreateCourse, CreateCourseLesson } from './dto/courses.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -75,6 +75,47 @@ export class CoursesController {
             userLoginId,
             courseId,
             payload,
+        );
+    }
+
+    @Post('user/:userLoginId/course/:courseId/lessons')
+    async createCourseLesson(
+        @Param('userLoginId') userLoginId: string,
+        @Param('courseId') courseId: string,
+        @Body() payload: CreateCourseLesson,
+    ): Promise<{ success: boolean }> {
+        return this.coursesService.createCourseLesson(
+            userLoginId,
+            courseId,
+            payload,
+        );
+    }
+
+    @Put('user/:userLoginId/course/:courseId/lessons/:lessonId')
+    async updateCourseLessonById(
+        @Param('userLoginId') userLoginId: string,
+        @Param('courseId') courseId: string,
+        @Param('lessonId') lessonId: string,
+        @Body() payload: Partial<CreateCourseLesson>,
+    ): Promise<{ success: boolean }> {
+        return this.coursesService.updateCourseLessonById(
+            userLoginId,
+            courseId,
+            lessonId,
+            payload,
+        );
+    }
+
+    @Delete('user/:userLoginId/course/:courseId/lessons/:lessonId')
+    async deleteCourseLessonById(
+        @Param('userLoginId') userLoginId: string,
+        @Param('courseId') courseId: string,
+        @Param('lessonId') lessonId: string,
+    ): Promise<{ success: boolean }> {
+        return this.coursesService.deleteCourseLessonById(
+            userLoginId,
+            courseId,
+            lessonId,
         );
     }
 }

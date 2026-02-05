@@ -1,5 +1,5 @@
 import { Course } from '@prisma/client';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateCourse {
     @IsString()
@@ -21,3 +21,21 @@ export type CoursesTotalStats = {
     totalLessons: number;
     totalWords: number;
 };
+
+export class CreateCourseLesson {
+    @IsString()
+    @IsNotEmpty()
+    name: string;
+
+    @IsOptional()
+    @IsString()
+    coverImageUrl?: string;
+
+    @IsOptional()
+    @IsNumber()
+    maxWords?: number;
+
+    @IsOptional()
+    @IsNumber()
+    orderIndex?: number;
+}

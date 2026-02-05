@@ -7,6 +7,7 @@ import {
     CourseResponse,
     CoursesTotalStats,
     CreateCourse,
+    CreateCourseLesson,
 } from './dto/courses.dto';
 
 @Injectable()
@@ -174,6 +175,70 @@ export class CoursesService {
             data: {
                 name: payload.name,
                 coverImageUrl: payload.coverImageUrl,
+            },
+        });
+        return {
+            success: true,
+        };
+    }
+
+    async createCourseLesson(
+        userLoginId: string,
+        courseId: string,
+        payload: CreateCourseLesson,
+    ): Promise<{ success: boolean }> {
+        const course = await this.getCourseById(userLoginId, courseId);
+        if (!course) {
+            throw new NotFoundException('Course not found');
+        }
+
+        await this.prisma.lesson.create({
+            data: {
+                id: uuidv7(),
+                name: payload.name,
+                coverImageUrl: payload.coverImageUrl,
+                maxWords: payload.maxWords,
+                orderIndex: payload.orderIndex,
+                courseId: courseId,
+            },
+        });
+        return {
+            success: true,
+        };
+    }
+
+    async updateCourseLessonById(
+        userLoginId: string,
+        courseId: string,
+        lessonId: string,
+        payload: Partial<CreateCourseLesson>,
+    ): Promise<{ success: boolean }> {
+        await this.prisma.lesson.update({
+            where: {
+                id: lessonId,
+                course: { userLoginId: userLoginId, id: courseId },
+            },
+            data: {
+                name: payload.name,
+                coverImageUrl: payload.coverImageUrl,
+                maxWords: payload.maxWords,
+                orderIndex: payload.orderIndex,
+            },
+        });
+        return {
+            success: true,
+        };
+    }
+
+    async deleteCourseLessonById(
+        userLoginId: string,
+        courseId: string,
+        lessonId: string,
+    ): Promise<{ success: boolean }> {
+        await this.prisma.lesson.delete({
+            where: {
+                id: lessonId,
+                course: { userLoginId: userLoginId, id: courseId },
             },
         });
         return {
