@@ -289,6 +289,41 @@ export class CoursesService {
             success: true,
         };
     }
+
+    async createCourseLessonWordsBulk(
+        userLoginId: string,
+        courseId: string,
+        lessonId: string,
+        payload: CreateWord[],
+    ): Promise<{ success: boolean }> {
+        const lesson = await this.prisma.lesson.findUnique({
+            where: {
+                id: lessonId,
+                course: { userLoginId: userLoginId, id: courseId },
+            },
+        });
+        if (!lesson) {
+            throw new NotFoundException('Lesson not found');
+        }
+
+        await this.prisma.word.createMany({
+            data: payload.map((word) => ({
+                id: uuidv7(),
+                word: word.word,
+                meaning: word.meaning,
+                pronunciation: word.pronunciation,
+                partOfSpeech: word.partOfSpeech,
+                audioUrl: word.audioUrl,
+                lessonId: lessonId,
+            })),
+            skipDuplicates: true,
+        });
+
+        return {
+            success: true,
+        };
+    }
+
     async updateCourseLessonWordById(
         userLoginId: string,
         courseId: string,
@@ -331,6 +366,28 @@ export class CoursesService {
                     },
                 },
             },
+        });
+        return {
+            success: true,
+        };
+    }
+
+    async moveWordToOtherLesson(
+        userLoginId: string,
+        courseId: string,
+        lessonId: string,
+        wordId: string,
+        targetLessonId: string,
+    ): Promise<{ success: boolean }> {
+        await this.prisma.word.update({
+            where: {
+                id: wordId,
+                lesson: {
+                    id: lessonId,
+                    course: { userLoginId: userLoginId, id: courseId },
+                },
+            },
+            data: { lessonId: targetLessonId },
         });
         return {
             success: true,

@@ -138,6 +138,21 @@ export class CoursesController {
         );
     }
 
+    @Post('user/:userLoginId/course/:courseId/lessons/:lessonId/words/bulk')
+    async createCourseLessonWordsBulk(
+        @Param('userLoginId') userLoginId: string,
+        @Param('courseId') courseId: string,
+        @Param('lessonId') lessonId: string,
+        @Body() payload: CreateWord[],
+    ): Promise<{ success: boolean }> {
+        return this.coursesService.createCourseLessonWordsBulk(
+            userLoginId,
+            courseId,
+            lessonId,
+            payload,
+        );
+    }
+
     @Put('user/:userLoginId/course/:courseId/lessons/:lessonId/words/:wordId')
     async updateCourseLessonWordById(
         @Param('userLoginId') userLoginId: string,
@@ -169,6 +184,25 @@ export class CoursesController {
             courseId,
             lessonId,
             wordId,
+        );
+    }
+
+    @Put(
+        'user/:userLoginId/course/:courseId/lessons/:lessonId/words/:wordId/move',
+    )
+    moveWordToOtherLesson(
+        @Param('userLoginId') userLoginId: string,
+        @Param('courseId') courseId: string,
+        @Param('lessonId') lessonId: string,
+        @Param('wordId') wordId: string,
+        @Body() payload: { targetLessonId: string },
+    ): Promise<{ success: boolean }> {
+        return this.coursesService.moveWordToOtherLesson(
+            userLoginId,
+            courseId,
+            lessonId,
+            wordId,
+            payload.targetLessonId,
         );
     }
 }
