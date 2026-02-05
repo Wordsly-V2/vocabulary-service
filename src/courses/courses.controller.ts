@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     Body,
     Controller,
     Delete,
@@ -8,7 +9,7 @@ import {
     Put,
     Query,
 } from '@nestjs/common';
-import { Course } from '@prisma/client';
+import { Course, Word } from '@prisma/client';
 import { CoursesService } from './courses.service';
 import {
     CreateCourse,
@@ -236,6 +237,25 @@ export class CoursesController {
             lessonId,
             wordId,
             payload.targetLessonId,
+        );
+    }
+
+    @Get('user/:userLoginId/course/:courseId/words/by-ids')
+    async getWordsById(
+        @Param('userLoginId') userLoginId: string,
+        @Param('courseId') courseId: string,
+        @Query('wordIds') wordIds: string,
+    ): Promise<Word[]> {
+        const wordIdsArray = wordIds.split(',');
+
+        if (!wordIdsArray || wordIdsArray.length === 0) {
+            throw new BadRequestException('wordIds is required');
+        }
+
+        return this.coursesService.getWordsById(
+            userLoginId,
+            courseId,
+            wordIdsArray,
         );
     }
 }

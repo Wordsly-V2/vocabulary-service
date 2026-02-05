@@ -1,7 +1,7 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { Pagination } from '@/types/common/pagination.type';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Course } from '@prisma/client';
+import { Course, Word } from '@prisma/client';
 import { v7 as uuidv7 } from 'uuid';
 import {
     CourseResponse,
@@ -436,5 +436,23 @@ export class CoursesService {
         return {
             success: true,
         };
+    }
+
+    async getWordsById(
+        userLoginId: string,
+        courseId: string,
+        wordIds: string[],
+    ): Promise<Word[]> {
+        return this.prisma.word.findMany({
+            where: {
+                id: { in: wordIds },
+                lesson: {
+                    course: { userLoginId: userLoginId, id: courseId },
+                },
+            },
+            orderBy: {
+                word: 'asc',
+            },
+        });
     }
 }
