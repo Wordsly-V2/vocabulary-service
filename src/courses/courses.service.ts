@@ -3,8 +3,11 @@ import { Pagination } from '@/types/common/pagination.type';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Course, Word } from '@prisma/client';
 import { v7 as uuidv7 } from 'uuid';
+import type { WordProgressStatsDto } from '@/word-progress/dto/word-progress.dto';
+import { WordProgressService } from '@/word-progress/word-progress.service';
 import {
     CourseResponse,
+    CourseWithWordProgressStats,
     CoursesTotalStats,
     CreateCourseDto,
     UpdateCourseDto,
@@ -12,39 +15,37 @@ import {
 
 @Injectable()
 export class CoursesService {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly wordProgressService: WordProgressService,
+    ) {}
 
     async getCoursesTotalStats(
         userLoginId: string,
     ): Promise<CoursesTotalStats> {
-        const [totalCourses, totalLessons, totalWords] = await Promise.all([
-            this.prisma.course.count({
-                where: {
-                    userLoginId: userLoginId,
-                },
-            }),
-            this.prisma.lesson.count({
-                where: {
-                    course: {
-                        userLoginId: userLoginId,
+        const [totalCourses, totalLessons, totalWords, wordProgressStats] =
+            await Promise.all([
+                this.prisma.course.count({
+                    where: { userLoginId },
+                }),
+                this.prisma.lesson.count({
+                    where: {
+                        course: { userLoginId },
                     },
-                },
-            }),
-            this.prisma.word.count({
-                where: {
-                    lesson: {
-                        course: {
-                            userLoginId: userLoginId,
-                        },
+                }),
+                this.prisma.word.count({
+                    where: {
+                        lesson: { course: { userLoginId } },
                     },
-                },
-            }),
-        ]);
+                }),
+                this.wordProgressService.getProgressStats(userLoginId),
+            ]);
 
         return {
             totalCourses,
             totalLessons,
             totalWords,
+            wordProgressStats,
         };
     }
 
@@ -98,7 +99,14 @@ export class CoursesService {
             }),
         ]);
 
-        const coursesResponse = courses.map((course) => ({
+        const courseIds = courses.map((c) => c.id);
+        const statsByCourse =
+            await this.wordProgressService.getProgressStatsMapByCourseIds(
+                userLoginId,
+                courseIds,
+            );
+
+        const coursesResponse: CourseResponse[] = courses.map((course) => ({
             id: course.id,
             name: course.name,
             coverImageUrl: course.coverImageUrl,
@@ -108,6 +116,8 @@ export class CoursesService {
                 (acc, lesson) => acc + lesson._count.words,
                 0,
             ),
+            wordProgressStats:
+                statsByCourse.get(course.id) ?? this.emptyWordProgressStats(),
         }));
 
         return {
@@ -137,23 +147,17 @@ export class CoursesService {
     async getCourseById(
         userLoginId: string,
         courseId: string,
-    ): Promise<Course> {
-        const course: Course | null = await this.prisma.course.findUnique({
+    ): Promise<CourseWithWordProgressStats> {
+        const course = await this.prisma.course.findUnique({
             where: {
                 id: courseId,
-                userLoginId: userLoginId,
+                userLoginId,
             },
             include: {
                 lessons: {
-                    orderBy: {
-                        orderIndex: 'asc',
-                    },
+                    orderBy: { orderIndex: 'asc' },
                     include: {
-                        words: {
-                            orderBy: {
-                                word: 'asc',
-                            },
-                        },
+                        words: { orderBy: { word: 'asc' } },
                     },
                 },
             },
@@ -163,7 +167,38 @@ export class CoursesService {
             throw new NotFoundException('Course not found');
         }
 
-        return course;
+        const lessonIds = course.lessons.map((l) => l.id);
+        const [statsByLesson, courseStats] = await Promise.all([
+            this.wordProgressService.getProgressStatsMapByLessonIds(
+                userLoginId,
+                lessonIds,
+            ),
+            this.wordProgressService.getProgressStats(userLoginId, courseId),
+        ]);
+
+        const lessonsWithStats = course.lessons.map((lesson) => ({
+            ...lesson,
+            wordProgressStats:
+                statsByLesson.get(lesson.id) ?? this.emptyWordProgressStats(),
+        }));
+
+        return {
+            ...course,
+            lessons: lessonsWithStats,
+            wordProgressStats: courseStats,
+        };
+    }
+
+    /** Common empty stats when no progress data exists. */
+    private emptyWordProgressStats(): WordProgressStatsDto {
+        return {
+            totalWords: 0,
+            newWords: 0,
+            learningWords: 0,
+            reviewWords: 0,
+            dueToday: 0,
+            overallSuccessRate: 0,
+        };
     }
 
     async updateCourse(

@@ -1,4 +1,5 @@
-import { Course } from '@prisma/client';
+import { Course, Lesson, Word } from '@prisma/client';
+import { WordProgressStatsDto } from '@/word-progress/dto/word-progress.dto';
 import {
     IsEnum,
     IsInt,
@@ -90,6 +91,12 @@ export class CourseResponseDto {
         example: 250,
     })
     totalWordsCount: number;
+
+    @ApiProperty({
+        description: 'Word progress statistics for the course',
+        type: WordProgressStatsDto,
+    })
+    wordProgressStats: WordProgressStatsDto;
 }
 
 export class CoursesTotalStatsDto {
@@ -110,6 +117,12 @@ export class CoursesTotalStatsDto {
         example: 500,
     })
     totalWords: number;
+
+    @ApiProperty({
+        description: 'Word progress statistics across all courses',
+        type: WordProgressStatsDto,
+    })
+    wordProgressStats: WordProgressStatsDto;
 }
 
 export class PaginatedCourseResponseDto {
@@ -197,12 +210,26 @@ export class CourseDetailResponseDto {
 export type CourseResponse = Omit<Course, 'createdAt' | 'updatedAt'> & {
     totalLessonsCount: number;
     totalWordsCount: number;
+    wordProgressStats: WordProgressStatsDto;
 };
 
 export type CoursesTotalStats = {
     totalCourses: number;
     totalLessons: number;
     totalWords: number;
+    wordProgressStats: WordProgressStatsDto;
+};
+
+/** Lesson with words and word-progress stats (for course detail). */
+export type LessonWithWordProgressStats = Lesson & {
+    words: Word[];
+    wordProgressStats: WordProgressStatsDto;
+};
+
+/** Course detail with lessons and word-progress stats. */
+export type CourseWithWordProgressStats = Course & {
+    lessons: LessonWithWordProgressStats[];
+    wordProgressStats: WordProgressStatsDto;
 };
 
 // Query DTOs for validation

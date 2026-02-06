@@ -446,38 +446,15 @@ export class WordProgressService {
     }
 
     /**
-     * Get progress statistics for a user
+     * Compute word-progress stats from total word count and progress records.
+     * Reusable for any scope (global, course, lesson).
      */
-    async getProgressStats(
-        userLoginId: string,
-        courseId?: string,
-        lessonId?: string,
-    ): Promise<WordProgressStatsDto> {
-        const now = new Date();
-
-        // Build where clause
-        const wordWhere: Prisma.WordWhereInput = {
-            lesson: {
-                course: {
-                    userLoginId,
-                    ...(courseId && { id: courseId }),
-                },
-                ...(lessonId && { id: lessonId }),
-            },
-        };
-
-        const [totalWords, wordProgresses] = await Promise.all([
-            this.prisma.word.count({ where: wordWhere }),
-            this.prisma.wordProgress.findMany({
-                where: {
-                    userLoginId,
-                    word: wordWhere,
-                },
-            }),
-        ]);
-
+    private computeStatsFromProgresses(
+        totalWords: number,
+        wordProgresses: WordProgress[],
+        now: Date,
+    ): WordProgressStatsDto {
         const newWords = totalWords - wordProgresses.length;
-
         let learningWords = 0;
         let reviewWords = 0;
         let dueToday = 0;
@@ -487,15 +464,11 @@ export class WordProgressService {
         for (const progress of wordProgresses) {
             totalReviews += progress.totalReviews;
             totalCorrect += progress.correctReviews;
-
-            // Learning phase: repetitions < 3
             if (progress.repetitions < 3) {
                 learningWords++;
             } else {
                 reviewWords++;
             }
-
-            // Due today
             if (progress.nextReviewAt <= now) {
                 dueToday++;
             }
@@ -514,6 +487,152 @@ export class WordProgressService {
             dueToday,
             overallSuccessRate,
         };
+    }
+
+    /**
+     * Get progress statistics for a user (optional scope by course and/or lesson).
+     */
+    async getProgressStats(
+        userLoginId: string,
+        courseId?: string,
+        lessonId?: string,
+    ): Promise<WordProgressStatsDto> {
+        const now = new Date();
+        const wordWhere: Prisma.WordWhereInput = {
+            lesson: {
+                course: {
+                    userLoginId,
+                    ...(courseId && { id: courseId }),
+                },
+                ...(lessonId && { id: lessonId }),
+            },
+        };
+
+        const [totalWords, wordProgresses] = await Promise.all([
+            this.prisma.word.count({ where: wordWhere }),
+            this.prisma.wordProgress.findMany({
+                where: { userLoginId, word: wordWhere },
+            }),
+        ]);
+
+        return this.computeStatsFromProgresses(totalWords, wordProgresses, now);
+    }
+
+    /**
+     * Get progress stats keyed by lesson ID. Reusable for enriching lesson lists.
+     */
+    async getProgressStatsMapByLessonIds(
+        userLoginId: string,
+        lessonIds: string[],
+    ): Promise<Map<string, WordProgressStatsDto>> {
+        if (lessonIds.length === 0) return new Map();
+        const now = new Date();
+
+        const [wordCountByLesson, progressList] = await Promise.all([
+            this.prisma.word.groupBy({
+                by: ['lessonId'],
+                where: { lessonId: { in: lessonIds } },
+                _count: { id: true },
+            }),
+            this.prisma.wordProgress.findMany({
+                where: {
+                    userLoginId,
+                    word: { lessonId: { in: lessonIds } },
+                },
+                include: {
+                    word: { select: { lessonId: true } },
+                },
+            }),
+        ]);
+
+        const totalWordsByLesson = new Map(
+            wordCountByLesson.map((g) => [g.lessonId, g._count.id]),
+        );
+        const progressByLesson = new Map<string, WordProgress[]>();
+        for (const p of progressList) {
+            const lessonId = p.word.lessonId;
+            if (!progressByLesson.has(lessonId)) {
+                progressByLesson.set(lessonId, []);
+            }
+            progressByLesson.get(lessonId)!.push(p as WordProgress);
+        }
+
+        const result = new Map<string, WordProgressStatsDto>();
+        for (const lessonId of lessonIds) {
+            const totalWords = totalWordsByLesson.get(lessonId) ?? 0;
+            const progresses = progressByLesson.get(lessonId) ?? [];
+            result.set(
+                lessonId,
+                this.computeStatsFromProgresses(totalWords, progresses, now),
+            );
+        }
+        return result;
+    }
+
+    /**
+     * Get progress stats keyed by course ID. Reusable for enriching course lists.
+     */
+    async getProgressStatsMapByCourseIds(
+        userLoginId: string,
+        courseIds: string[],
+    ): Promise<Map<string, WordProgressStatsDto>> {
+        if (courseIds.length === 0) return new Map();
+        const now = new Date();
+
+        const [lessons, wordCountByLesson, progressList] = await Promise.all([
+            this.prisma.lesson.findMany({
+                where: { courseId: { in: courseIds } },
+                select: { id: true, courseId: true },
+            }),
+            this.prisma.word.groupBy({
+                by: ['lessonId'],
+                where: { lesson: { courseId: { in: courseIds } } },
+                _count: { id: true },
+            }),
+            this.prisma.wordProgress.findMany({
+                where: {
+                    userLoginId,
+                    word: { lesson: { courseId: { in: courseIds } } },
+                },
+                include: {
+                    word: {
+                        select: { lesson: { select: { courseId: true } } },
+                    },
+                },
+            }),
+        ]);
+
+        const lessonToCourse = new Map(lessons.map((l) => [l.id, l.courseId]));
+        const wordCountByCourse = new Map<string, number>();
+        for (const g of wordCountByLesson) {
+            const courseId = lessonToCourse.get(g.lessonId);
+            if (courseId != null) {
+                wordCountByCourse.set(
+                    courseId,
+                    (wordCountByCourse.get(courseId) ?? 0) + g._count.id,
+                );
+            }
+        }
+
+        const progressByCourse = new Map<string, WordProgress[]>();
+        for (const p of progressList) {
+            const courseId = p.word.lesson.courseId;
+            if (!progressByCourse.has(courseId)) {
+                progressByCourse.set(courseId, []);
+            }
+            progressByCourse.get(courseId)!.push(p as WordProgress);
+        }
+
+        const result = new Map<string, WordProgressStatsDto>();
+        for (const courseId of courseIds) {
+            const totalWords = wordCountByCourse.get(courseId) ?? 0;
+            const progresses = progressByCourse.get(courseId) ?? [];
+            result.set(
+                courseId,
+                this.computeStatsFromProgresses(totalWords, progresses, now),
+            );
+        }
+        return result;
     }
 
     /**
