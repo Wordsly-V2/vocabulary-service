@@ -32,13 +32,13 @@ import {
     UpdateCourseDto,
 } from './dto/courses.dto';
 
-@ApiTags('courses')
+@ApiTags('users/:userLoginId/courses')
 @Controller('users/:userLoginId/courses')
 @UseGuards(InternalServiceGuard)
 export class CoursesController {
     constructor(private readonly coursesService: CoursesService) {}
 
-    @Get('stats')
+    @Get('total-stats')
     @ApiOperation({
         summary: 'Get course statistics',
         description:
