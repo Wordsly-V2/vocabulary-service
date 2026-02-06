@@ -76,6 +76,9 @@ export class CoursesService {
                         },
                     },
                     lessons: {
+                        orderBy: {
+                            orderIndex: 'asc',
+                        },
                         include: {
                             _count: {
                                 select: {

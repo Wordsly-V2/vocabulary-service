@@ -13,27 +13,36 @@ export class CourseLessonsService {
         courseId: string,
         payload: CreateLessonDto,
     ): Promise<Lesson> {
-        // Verify course exists and belongs to user
-        const course = await this.prisma.course.findUnique({
-            where: {
-                id: courseId,
-                userLoginId: userLoginId,
-            },
-        });
+        return await this.prisma.$transaction(async (transaction) => {
+            // Verify course exists and belongs to user
+            const course = await transaction.course.findUnique({
+                where: {
+                    id: courseId,
+                    userLoginId: userLoginId,
+                },
+                include: {
+                    _count: {
+                        select: {
+                            lessons: true,
+                        },
+                    },
+                },
+            });
 
-        if (!course) {
-            throw new NotFoundException('Course not found');
-        }
+            if (!course) {
+                throw new NotFoundException('Course not found');
+            }
 
-        return this.prisma.lesson.create({
-            data: {
-                id: uuidv7(),
-                name: payload.name,
-                coverImageUrl: payload.coverImageUrl,
-                maxWords: payload.maxWords,
-                orderIndex: payload.orderIndex,
-                courseId: courseId,
-            },
+            return transaction.lesson.create({
+                data: {
+                    id: uuidv7(),
+                    name: payload.name,
+                    coverImageUrl: payload.coverImageUrl,
+                    maxWords: payload.maxWords,
+                    orderIndex: payload.orderIndex ?? course._count.lessons + 1,
+                    courseId: courseId,
+                },
+            });
         });
     }
 
