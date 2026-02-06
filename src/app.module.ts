@@ -5,6 +5,8 @@ import { ConfigModule } from '@nestjs/config';
 import { CoursesModule } from './courses/courses.module';
 import configuration from './config/configuration';
 import { PrismaModule } from './prisma/prisma.module';
+import { WordsModule } from './words/words.module';
+import { DictionaryModule } from './dictionary/dictionary.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { PrismaModule } from './prisma/prisma.module';
     }),
     CoursesModule,
     PrismaModule,
+    WordsModule,
+    DictionaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],
