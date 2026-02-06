@@ -23,6 +23,50 @@
 
 ## Description
 
+Vocabulary Service for Wordsly V2 - A NestJS-based microservice for managing vocabulary learning with spaced repetition.
+
+## Features
+
+- 📚 **Course Management** - Create and manage vocabulary courses
+- 📖 **Lesson Organization** - Structure content into lessons
+- 🔤 **Word Management** - Add and manage vocabulary words
+- 🧠 **Spaced Repetition** - SM-2 algorithm for optimal learning
+- 📊 **Progress Tracking** - Monitor learning proficiency and statistics
+- 🔍 **Dictionary Integration** - Cambridge Dictionary API integration
+
+## Spaced Repetition System
+
+This service includes a production-ready spaced repetition system using the SuperMemo SM-2 algorithm for vocabulary learning.
+
+### Quick Links
+- 📖 [Full Documentation](./SPACED_REPETITION.md)
+- 🚀 [Quick Start Guide](./QUICK_START.md)
+- 📊 [Visual Guide](./VISUAL_GUIDE.md)
+- 💻 [Integration Examples](./examples/learning-integration.example.ts)
+- 📝 [Implementation Summary](./IMPLEMENTATION_SUMMARY.md)
+
+### Key Features
+- ✅ SM-2 spaced repetition algorithm
+- ✅ Proficiency tracking (ease factor, interval, repetitions)
+- ✅ Smart review scheduling
+- ✅ Comprehensive statistics and analytics
+- ✅ Bulk operations for performance
+- ✅ Filter by course/lesson
+- ✅ REST API with Swagger documentation
+
+### API Endpoints
+
+Base: `/users/:userLoginId/word-progress`
+
+- `POST /record-answer` - Record a single answer
+- `POST /record-answers` - Record multiple answers (bulk)
+- `GET /due-words` - Get words due for review
+- `GET /stats` - Get learning statistics
+- `GET /words/:wordId` - Get word progress
+- `DELETE /words/:wordId/reset` - Reset progress
+
+## Description
+
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
 ## Project setup

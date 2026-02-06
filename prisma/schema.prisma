@@ -59,5 +59,38 @@ model Word {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
+  wordProgress WordProgress[]
+
   @@map("words")
+}
+
+// Spaced Repetition tracking using SM-2 algorithm
+model WordProgress {
+  id          String  @id @db.Uuid
+  
+  // References
+  wordId      String  @db.Uuid
+  word        Word    @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  userLoginId String  @db.Uuid
+  
+  // SM-2 Algorithm fields
+  easeFactor  Float   @default(2.5)  // How easy the word is (2.5 is default)
+  interval    Int     @default(0)     // Days until next review (0 = new card)
+  repetitions Int     @default(0)     // Number of consecutive correct answers
+  
+  // Review tracking
+  lastReviewedAt DateTime?  @map("last_reviewed_at") @db.Timestamptz
+  nextReviewAt   DateTime   @default(now()) @map("next_review_at") @db.Timestamptz
+  
+  // Statistics
+  totalReviews    Int @default(0) @map("total_reviews")
+  correctReviews  Int @default(0) @map("correct_reviews")
+  
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([wordId, userLoginId])
+  @@index([userLoginId, nextReviewAt])
+  @@index([wordId])
+  @@map("word_progress")
 }

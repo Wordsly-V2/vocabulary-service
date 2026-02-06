@@ -9,6 +9,7 @@ import { CourseLessonWordsModule } from './course-lesson-words/course-lesson-wor
 import { DictionaryModule } from './dictionary/dictionary.module';
 import { CourseLessonsModule } from './course-lessons/course-lessons.module';
 import { WordsModule } from './words/words.module';
+import { WordProgressModule } from './word-progress/word-progress.module';
 
 @Module({
     imports: [
@@ -22,6 +23,7 @@ import { WordsModule } from './words/words.module';
         DictionaryModule,
         CourseLessonsModule,
         WordsModule,
+        WordProgressModule,
     ],
     controllers: [AppController],
     providers: [AppService],
