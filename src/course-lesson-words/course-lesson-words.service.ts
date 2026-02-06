@@ -1,5 +1,9 @@
 import { PrismaService } from '@/prisma/prisma.service';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+    BadRequestException,
+    Injectable,
+    NotFoundException,
+} from '@nestjs/common';
 import { Word } from '@prisma/client';
 import { v7 as uuidv7 } from 'uuid';
 import { CreateWordDto, UpdateWordDto } from './dto/word.dto';
@@ -7,6 +11,34 @@ import { CreateWordDto, UpdateWordDto } from './dto/word.dto';
 @Injectable()
 export class CourseLessonWordsService {
     constructor(private readonly prisma: PrismaService) {}
+
+    /**
+     * Ensures the lesson has capacity for `additionalCount` more words.
+     * Throws BadRequestException if lesson has maxWords set and would be exceeded.
+     */
+    private async assertLessonHasCapacity(
+        userLoginId: string,
+        courseId: string,
+        lessonId: string,
+        additionalCount: number,
+    ): Promise<void> {
+        const lesson = await this.prisma.lesson.findUnique({
+            where: {
+                id: lessonId,
+                course: { userLoginId: userLoginId, id: courseId },
+            },
+            select: { maxWords: true, _count: { select: { words: true } } },
+        });
+        if (!lesson) return; // caller already validates lesson exists
+        const { maxWords, _count } = lesson;
+        if (maxWords == null) return;
+        const currentCount = _count.words;
+        if (currentCount + additionalCount > maxWords) {
+            throw new BadRequestException(
+                `Lesson allows at most ${maxWords} words (current: ${currentCount}, adding: ${additionalCount}).`,
+            );
+        }
+    }
 
     async createWord(
         userLoginId: string,
@@ -25,6 +57,8 @@ export class CourseLessonWordsService {
         if (!lesson) {
             throw new NotFoundException('Lesson not found');
         }
+
+        await this.assertLessonHasCapacity(userLoginId, courseId, lessonId, 1);
 
         return this.prisma.word.create({
             data: {
@@ -56,6 +90,13 @@ export class CourseLessonWordsService {
         if (!lesson) {
             throw new NotFoundException('Lesson not found');
         }
+
+        await this.assertLessonHasCapacity(
+            userLoginId,
+            courseId,
+            lessonId,
+            words.length,
+        );
 
         const result = await this.prisma.word.createMany({
             data: words.map((word) => ({
@@ -188,6 +229,13 @@ export class CourseLessonWordsService {
             throw new NotFoundException('Target lesson not found');
         }
 
+        await this.assertLessonHasCapacity(
+            userLoginId,
+            courseId,
+            targetLessonId,
+            1,
+        );
+
         return this.prisma.word.update({
             where: {
                 id: wordId,
@@ -218,6 +266,13 @@ export class CourseLessonWordsService {
         if (!targetLesson) {
             throw new NotFoundException('Target lesson not found');
         }
+
+        await this.assertLessonHasCapacity(
+            userLoginId,
+            courseId,
+            targetLessonId,
+            wordIds.length,
+        );
 
         const result = await this.prisma.word.updateMany({
             where: {

@@ -70,6 +70,11 @@ export class CourseLessonWordsController {
         status: 404,
         description: 'Lesson not found',
     })
+    @ApiResponse({
+        status: 400,
+        description:
+            'Lesson has reached its maximum word limit (maxWords per lesson)',
+    })
     async createWord(
         @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
@@ -107,7 +112,8 @@ export class CourseLessonWordsController {
     })
     @ApiResponse({
         status: 400,
-        description: 'Invalid input data',
+        description:
+            'Invalid input data or lesson would exceed maxWords per lesson',
     })
     async createWordsBulk(
         @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
@@ -153,6 +159,42 @@ export class CourseLessonWordsController {
             courseId,
             lessonId,
             wordId,
+        );
+    }
+
+    @Put('bulk-move')
+    @ApiOperation({
+        summary: 'Move multiple words to another lesson',
+        description:
+            'Moves multiple words from the current lesson to a target lesson in bulk',
+    })
+    @ApiBody({ type: BulkMoveWordsDto })
+    @ApiResponse({
+        status: 200,
+        description: 'Words moved successfully',
+        type: BulkOperationResponseDto,
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Target lesson not found',
+    })
+    @ApiResponse({
+        status: 400,
+        description:
+            'Target lesson would exceed its maximum word limit (maxWords)',
+    })
+    async moveWordsBulk(
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
+        @Body() bulkMoveWordsDto: BulkMoveWordsDto,
+    ): Promise<{ count: number }> {
+        return this.wordsService.moveWordsBulk(
+            userLoginId,
+            courseId,
+            lessonId,
+            bulkMoveWordsDto.wordIds,
+            bulkMoveWordsDto.targetLessonId,
         );
     }
 
@@ -246,6 +288,11 @@ export class CourseLessonWordsController {
         status: 404,
         description: 'Word or target lesson not found',
     })
+    @ApiResponse({
+        status: 400,
+        description:
+            'Target lesson has reached its maximum word limit (maxWords)',
+    })
     async moveWord(
         @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
@@ -259,37 +306,6 @@ export class CourseLessonWordsController {
             lessonId,
             wordId,
             moveWordDto.targetLessonId,
-        );
-    }
-
-    @Put('bulk-move')
-    @ApiOperation({
-        summary: 'Move multiple words to another lesson',
-        description:
-            'Moves multiple words from the current lesson to a target lesson in bulk',
-    })
-    @ApiBody({ type: BulkMoveWordsDto })
-    @ApiResponse({
-        status: 200,
-        description: 'Words moved successfully',
-        type: BulkOperationResponseDto,
-    })
-    @ApiResponse({
-        status: 404,
-        description: 'Target lesson not found',
-    })
-    async moveWordsBulk(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
-        @Param('courseId', new ParseUUIDPipe()) courseId: string,
-        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
-        @Body() bulkMoveWordsDto: BulkMoveWordsDto,
-    ): Promise<{ count: number }> {
-        return this.wordsService.moveWordsBulk(
-            userLoginId,
-            courseId,
-            lessonId,
-            bulkMoveWordsDto.wordIds,
-            bulkMoveWordsDto.targetLessonId,
         );
     }
 

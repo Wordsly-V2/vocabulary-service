@@ -147,6 +147,21 @@ export class CourseLessonsService {
         // Verify lesson exists
         await this.getLessonById(userLoginId, courseId, lessonId);
 
+        if (typeof payload.maxWords === 'number') {
+            const lesson = await this.prisma.lesson.findUnique({
+                where: {
+                    id: lessonId,
+                    course: { userLoginId: userLoginId, id: courseId },
+                },
+                select: { _count: { select: { words: true } } },
+            });
+            if (lesson && lesson._count.words > payload.maxWords) {
+                throw new BadRequestException(
+                    `Lesson has ${lesson._count.words} words; maxWords cannot be set to ${payload.maxWords}.`,
+                );
+            }
+        }
+
         return this.prisma.lesson.update({
             where: {
                 id: lessonId,

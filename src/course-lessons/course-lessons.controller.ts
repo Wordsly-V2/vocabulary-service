@@ -157,6 +157,11 @@ export class CourseLessonsController {
         status: 404,
         description: 'Lesson not found',
     })
+    @ApiResponse({
+        status: 400,
+        description:
+            'maxWords cannot be less than the current word count in the lesson',
+    })
     async updateLesson(
         @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
