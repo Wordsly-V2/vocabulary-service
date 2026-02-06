@@ -22,9 +22,9 @@ import {
     DueWordDto,
     GetDueWordsQueryDto,
     RecordAnswerDto,
-    ResetProgressDto,
     WordProgressResponseDto,
     WordProgressStatsDto,
+    WordProgressStatsQueryDto,
 } from './dto/word-progress.dto';
 import { WordProgressService } from './word-progress.service';
 
@@ -32,15 +32,13 @@ import { WordProgressService } from './word-progress.service';
 @Controller('users/:userLoginId/word-progress')
 @UseGuards(InternalServiceGuard)
 export class WordProgressController {
-    constructor(
-        private readonly wordProgressService: WordProgressService,
-    ) {}
+    constructor(private readonly wordProgressService: WordProgressService) {}
 
     @Post('record-answer')
     @ApiOperation({
         summary: 'Record an answer for a word',
         description:
-            'Records the user\'s answer quality and updates the spaced repetition schedule using SM-2 algorithm',
+            "Records the user's answer quality and updates the spaced repetition schedule using SM-2 algorithm",
     })
     @ApiParam({
         name: 'userLoginId',
@@ -138,24 +136,8 @@ export class WordProgressController {
     })
     async getDueWords(
         @Param('userLoginId') userLoginId: string,
-        @Query('courseId') courseId?: string,
-        @Query('lessonId') lessonId?: string,
-        @Query('limit') limit?: number,
-        @Query('includeNew') includeNew?: string,
+        @Query() query: GetDueWordsQueryDto,
     ): Promise<DueWordDto[]> {
-        // Parse includeNew query parameter (can be string or boolean)
-        let includeNewBool = true;
-        if (includeNew !== undefined) {
-            includeNewBool = includeNew === 'true' || includeNew === '1';
-        }
-
-        const query: GetDueWordsQueryDto = {
-            courseId,
-            lessonId,
-            limit: limit ? Number(limit) : 20,
-            includeNew: includeNewBool,
-        };
-
         return this.wordProgressService.getDueWords(userLoginId, query);
     }
 
@@ -163,7 +145,7 @@ export class WordProgressController {
     @ApiOperation({
         summary: 'Get learning progress statistics',
         description:
-            'Retrieves comprehensive statistics about the user\'s learning progress including new, learning, and review words',
+            "Retrieves comprehensive statistics about the user's learning progress including new, learning, and review words",
     })
     @ApiParam({
         name: 'userLoginId',
@@ -189,20 +171,20 @@ export class WordProgressController {
     })
     async getProgressStats(
         @Param('userLoginId') userLoginId: string,
-        @Query('courseId') courseId?: string,
-        @Query('lessonId') lessonId?: string,
+        @Query() query: WordProgressStatsQueryDto,
     ): Promise<WordProgressStatsDto> {
         return this.wordProgressService.getProgressStats(
             userLoginId,
-            courseId,
-            lessonId,
+            query.courseId,
+            query.lessonId,
         );
     }
 
     @Get('words/:wordId')
     @ApiOperation({
         summary: 'Get progress for a specific word',
-        description: 'Retrieves the learning progress details for a single word',
+        description:
+            'Retrieves the learning progress details for a single word',
     })
     @ApiParam({
         name: 'userLoginId',

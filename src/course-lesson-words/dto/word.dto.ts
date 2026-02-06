@@ -1,21 +1,36 @@
-import { IsNotEmpty, IsOptional, IsString, IsArray } from 'class-validator';
+import {
+    ArrayMinSize,
+    IsArray,
+    IsNotEmpty,
+    IsOptional,
+    IsString,
+    IsUrl,
+    IsUUID,
+    MinLength,
+    ValidateNested,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class CreateWordDto {
     @ApiProperty({
         description: 'The word to add',
         example: 'hello',
+        minLength: 1,
     })
     @IsString()
     @IsNotEmpty()
+    @MinLength(1)
     word: string;
 
     @ApiProperty({
         description: 'The meaning of the word',
         example: 'used as a greeting',
+        minLength: 1,
     })
     @IsString()
     @IsNotEmpty()
+    @MinLength(1)
     meaning: string;
 
     @ApiPropertyOptional({
@@ -40,6 +55,7 @@ export class CreateWordDto {
     })
     @IsOptional()
     @IsString()
+    @IsUrl()
     audioUrl?: string;
 }
 
@@ -47,17 +63,21 @@ export class UpdateWordDto {
     @ApiPropertyOptional({
         description: 'The word to update',
         example: 'hello',
+        minLength: 1,
     })
     @IsOptional()
     @IsString()
+    @MinLength(1)
     word?: string;
 
     @ApiPropertyOptional({
         description: 'The meaning of the word',
         example: 'used as a greeting',
+        minLength: 1,
     })
     @IsOptional()
     @IsString()
+    @MinLength(1)
     meaning?: string;
 
     @ApiPropertyOptional({
@@ -82,6 +102,7 @@ export class UpdateWordDto {
     })
     @IsOptional()
     @IsString()
+    @IsUrl()
     audioUrl?: string;
 }
 
@@ -91,6 +112,9 @@ export class BulkCreateWordsDto {
         type: [CreateWordDto],
     })
     @IsArray()
+    @ArrayMinSize(1)
+    @ValidateNested({ each: true })
+    @Type(() => CreateWordDto)
     words: CreateWordDto[];
 }
 
@@ -99,7 +123,7 @@ export class MoveWordDto {
         description: 'Target lesson ID to move the word to',
         example: 'lesson-uuid-123',
     })
-    @IsString()
+    @IsUUID()
     @IsNotEmpty()
     targetLessonId: string;
 }
@@ -111,14 +135,15 @@ export class BulkMoveWordsDto {
         type: [String],
     })
     @IsArray()
-    @IsNotEmpty()
+    @ArrayMinSize(1)
+    @IsUUID('4', { each: true })
     wordIds: string[];
 
     @ApiProperty({
         description: 'Target lesson ID to move the words to',
         example: 'lesson-uuid-123',
     })
-    @IsString()
+    @IsUUID()
     @IsNotEmpty()
     targetLessonId: string;
 }
@@ -130,7 +155,8 @@ export class BulkDeleteWordsDto {
         type: [String],
     })
     @IsArray()
-    @IsNotEmpty()
+    @ArrayMinSize(1)
+    @IsUUID('4', { each: true })
     wordIds: string[];
 }
 

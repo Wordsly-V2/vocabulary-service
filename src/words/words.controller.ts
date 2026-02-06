@@ -15,12 +15,17 @@ export class WordsController {
     })
     @ApiParam({
         name: 'word',
-        description: 'Word to get pronunciation for',
+        description:
+            'Word to get pronunciation for (letters, spaces, hyphens, apostrophes only)',
         example: 'hello',
     })
     @ApiResponse({
         status: 200,
         description: 'Pronunciation data retrieved successfully',
+    })
+    @ApiResponse({
+        status: 400,
+        description: 'Invalid word format',
     })
     @ApiResponse({
         status: 404,

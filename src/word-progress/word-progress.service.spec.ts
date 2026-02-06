@@ -70,8 +70,12 @@ describe('WordProgressService - SM-2 Algorithm', () => {
             };
 
             jest.spyOn(prisma.word, 'findFirst').mockResolvedValue(mockWord);
-            jest.spyOn(prisma.wordProgress, 'findUnique').mockResolvedValue(null);
-            jest.spyOn(prisma.wordProgress, 'create').mockResolvedValue(mockProgress);
+            jest.spyOn(prisma.wordProgress, 'findUnique').mockResolvedValue(
+                null,
+            );
+            jest.spyOn(prisma.wordProgress, 'create').mockResolvedValue(
+                mockProgress,
+            );
 
             const result = await service.recordAnswer('user-1', {
                 wordId: 'word-1',
@@ -120,8 +124,12 @@ describe('WordProgressService - SM-2 Algorithm', () => {
             };
 
             jest.spyOn(prisma.word, 'findFirst').mockResolvedValue(mockWord);
-            jest.spyOn(prisma.wordProgress, 'findUnique').mockResolvedValue(existingProgress);
-            jest.spyOn(prisma.wordProgress, 'update').mockResolvedValue(updatedProgress);
+            jest.spyOn(prisma.wordProgress, 'findUnique').mockResolvedValue(
+                existingProgress,
+            );
+            jest.spyOn(prisma.wordProgress, 'update').mockResolvedValue(
+                updatedProgress,
+            );
 
             const result = await service.recordAnswer('user-1', {
                 wordId: 'word-1',
@@ -169,8 +177,12 @@ describe('WordProgressService - SM-2 Algorithm', () => {
             };
 
             jest.spyOn(prisma.word, 'findFirst').mockResolvedValue(mockWord);
-            jest.spyOn(prisma.wordProgress, 'findUnique').mockResolvedValue(existingProgress);
-            jest.spyOn(prisma.wordProgress, 'update').mockResolvedValue(updatedProgress);
+            jest.spyOn(prisma.wordProgress, 'findUnique').mockResolvedValue(
+                existingProgress,
+            );
+            jest.spyOn(prisma.wordProgress, 'update').mockResolvedValue(
+                updatedProgress,
+            );
 
             const result = await service.recordAnswer('user-1', {
                 wordId: 'word-1',
@@ -216,7 +228,9 @@ describe('WordProgressService - SM-2 Algorithm', () => {
             ];
 
             jest.spyOn(prisma.word, 'count').mockResolvedValue(10);
-            jest.spyOn(prisma.wordProgress, 'findMany').mockResolvedValue(mockProgresses);
+            jest.spyOn(prisma.wordProgress, 'findMany').mockResolvedValue(
+                mockProgresses,
+            );
 
             const stats = await service.getProgressStats('user-1');
 
@@ -277,7 +291,9 @@ describe('WordProgressService - SM-2 Algorithm', () => {
                 },
             ];
 
-            jest.spyOn(prisma.word, 'findMany').mockResolvedValue(mockWords as any);
+            jest.spyOn(prisma.word, 'findMany').mockResolvedValue(
+                mockWords as any,
+            );
 
             const dueWords = await service.getDueWords('user-1', { limit: 10 });
 

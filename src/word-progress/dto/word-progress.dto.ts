@@ -1,5 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+    IsArray,
+    IsBoolean,
+    IsEnum,
+    IsInt,
+    IsOptional,
+    IsUUID,
+    Max,
+    Min,
+    ValidateNested,
+} from 'class-validator';
 
 /**
  * Quality rating for spaced repetition (SM-2 algorithm)
@@ -41,6 +52,9 @@ export class BulkRecordAnswersDto {
         description: 'Array of word answers to record',
         type: [RecordAnswerDto],
     })
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => RecordAnswerDto)
     answers: RecordAnswerDto[];
 }
 
@@ -65,12 +79,15 @@ export class GetDueWordsQueryDto {
         description: 'Maximum number of words to return',
         example: 20,
         default: 20,
+        minimum: 1,
+        maximum: 100,
     })
     @IsOptional()
+    @Type(() => Number)
     @IsInt()
     @Min(1)
     @Max(100)
-    limit?: number;
+    limit?: number = 20;
 
     @ApiPropertyOptional({
         description: 'Include new words (not yet reviewed)',
@@ -78,8 +95,13 @@ export class GetDueWordsQueryDto {
         default: true,
     })
     @IsOptional()
+    @Transform(({ value }) => {
+        if (value === 'true' || value === true) return true;
+        if (value === 'false' || value === false) return false;
+        return true;
+    })
     @IsBoolean()
-    includeNew?: boolean;
+    includeNew?: boolean = true;
 }
 
 export class WordProgressResponseDto {
@@ -216,4 +238,22 @@ export class ResetProgressDto {
     })
     @IsUUID()
     wordId: string;
+}
+
+export class WordProgressStatsQueryDto {
+    @ApiPropertyOptional({
+        description: 'Filter by specific course ID',
+        example: '01936b3e-7c8f-7890-abcd-ef1234567890',
+    })
+    @IsOptional()
+    @IsUUID()
+    courseId?: string;
+
+    @ApiPropertyOptional({
+        description: 'Filter by specific lesson ID',
+        example: '01936b3e-7c8f-7890-abcd-ef1234567890',
+    })
+    @IsOptional()
+    @IsUUID()
+    lessonId?: string;
 }

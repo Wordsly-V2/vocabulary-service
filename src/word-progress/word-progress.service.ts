@@ -1,10 +1,6 @@
 import { PrismaService } from '@/prisma/prisma.service';
-import {
-    BadRequestException,
-    Injectable,
-    NotFoundException,
-} from '@nestjs/common';
-import { WordProgress, Word } from '@prisma/client';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma, WordProgress } from '@prisma/client';
 import { v7 as uuidv7 } from 'uuid';
 import {
     AnswerQuality,
@@ -18,12 +14,12 @@ import {
 /**
  * Word Progress Service
  * Implements the SuperMemo SM-2 spaced repetition algorithm
- * 
+ *
  * Algorithm Details:
  * - EF (Ease Factor): Represents how easy a word is to remember (default: 2.5)
  * - Interval: Days until the next review
  * - Repetitions: Number of consecutive correct answers
- * 
+ *
  * The algorithm adjusts the interval based on the quality of the answer:
  * - Quality 0-2: Reset progress, review again tomorrow
  * - Quality 3-5: Increase interval based on ease factor
@@ -34,7 +30,7 @@ export class WordProgressService {
 
     /**
      * Calculate the next review interval using the SM-2 algorithm
-     * 
+     *
      * @param quality - Answer quality (0-5)
      * @param easeFactor - Current ease factor
      * @param interval - Current interval in days
@@ -49,8 +45,9 @@ export class WordProgressService {
     ): { easeFactor: number; interval: number; repetitions: number } {
         // Calculate new ease factor
         // EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
-        let newEaseFactor = easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
-        
+        let newEaseFactor =
+            easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+
         // Ensure ease factor doesn't go below 1.3
         if (newEaseFactor < 1.3) {
             newEaseFactor = 1.3;
@@ -60,7 +57,7 @@ export class WordProgressService {
         let newRepetitions: number;
 
         // If quality is less than 3, reset repetitions and set interval to 1 day
-        if (quality < 3) {
+        if (quality < AnswerQuality.CORRECT_WITH_DIFFICULTY) {
             newRepetitions = 0;
             newInterval = 1;
         } else {
@@ -120,16 +117,17 @@ export class WordProgressService {
         });
 
         const now = new Date();
-        const isCorrect = quality >= 3;
+        const isCorrect = quality >= AnswerQuality.CORRECT_WITH_DIFFICULTY;
 
         if (!wordProgress) {
             // Create new word progress
-            const { easeFactor, interval, repetitions } = this.calculateNextReview(
-                quality,
-                2.5, // Default ease factor
-                0,   // Default interval
-                0,   // Default repetitions
-            );
+            const { easeFactor, interval, repetitions } =
+                this.calculateNextReview(
+                    quality,
+                    2.5, // Default ease factor
+                    0, // Default interval
+                    0, // Default repetitions
+                );
 
             const nextReviewAt = new Date(now);
             nextReviewAt.setDate(nextReviewAt.getDate() + interval);
@@ -150,12 +148,13 @@ export class WordProgressService {
             });
         } else {
             // Update existing word progress
-            const { easeFactor, interval, repetitions } = this.calculateNextReview(
-                quality,
-                wordProgress.easeFactor,
-                wordProgress.interval,
-                wordProgress.repetitions,
-            );
+            const { easeFactor, interval, repetitions } =
+                this.calculateNextReview(
+                    quality,
+                    wordProgress.easeFactor,
+                    wordProgress.interval,
+                    wordProgress.repetitions,
+                );
 
             const nextReviewAt = new Date(now);
             nextReviewAt.setDate(nextReviewAt.getDate() + interval);
@@ -205,7 +204,7 @@ export class WordProgressService {
         const now = new Date();
 
         // Build where clause for words
-        const wordWhere: any = {
+        const wordWhere: Prisma.WordWhereInput = {
             lesson: {
                 course: {
                     userLoginId,
@@ -274,7 +273,10 @@ export class WordProgressService {
                         isNew: true,
                     });
                 }
-            } else if (progress.nextReviewAt <= now && dueWords.length < limit) {
+            } else if (
+                progress.nextReviewAt <= now &&
+                dueWords.length < limit
+            ) {
                 // Due for review
                 const progressResponse = this.mapToProgressResponse(progress);
                 dueWords.push({
@@ -319,7 +321,7 @@ export class WordProgressService {
         const now = new Date();
 
         // Build where clause
-        const wordWhere: any = {
+        const wordWhere: Prisma.WordWhereInput = {
             lesson: {
                 course: {
                     userLoginId,
@@ -340,7 +342,7 @@ export class WordProgressService {
         ]);
 
         const newWords = totalWords - wordProgresses.length;
-        
+
         let learningWords = 0;
         let reviewWords = 0;
         let dueToday = 0;
@@ -364,9 +366,10 @@ export class WordProgressService {
             }
         }
 
-        const overallSuccessRate = totalReviews > 0 
-            ? Math.round((totalCorrect / totalReviews) * 100 * 10) / 10 
-            : 0;
+        const overallSuccessRate =
+            totalReviews > 0
+                ? Math.round((totalCorrect / totalReviews) * 100 * 10) / 10
+                : 0;
 
         return {
             totalWords,
@@ -400,10 +403,7 @@ export class WordProgressService {
     /**
      * Reset progress for a specific word
      */
-    async resetProgress(
-        userLoginId: string,
-        wordId: string,
-    ): Promise<void> {
+    async resetProgress(userLoginId: string, wordId: string): Promise<void> {
         // Verify word exists and user has access
         const word = await this.prisma.word.findFirst({
             where: {
@@ -431,10 +431,17 @@ export class WordProgressService {
     /**
      * Map WordProgress entity to response DTO
      */
-    private mapToProgressResponse(progress: WordProgress): WordProgressResponseDto {
-        const successRate = progress.totalReviews > 0
-            ? Math.round((progress.correctReviews / progress.totalReviews) * 100 * 10) / 10
-            : 0;
+    private mapToProgressResponse(
+        progress: WordProgress,
+    ): WordProgressResponseDto {
+        const successRate =
+            progress.totalReviews > 0
+                ? Math.round(
+                      (progress.correctReviews / progress.totalReviews) *
+                          100 *
+                          10,
+                  ) / 10
+                : 0;
 
         return {
             id: progress.id,

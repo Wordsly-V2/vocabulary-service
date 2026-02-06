@@ -10,6 +10,9 @@ async function bootstrap() {
         new ValidationPipe({
             transform: true,
             whitelist: true,
+            transformOptions: {
+                enableImplicitConversion: true,
+            },
         }),
     );
 
@@ -22,6 +25,10 @@ async function bootstrap() {
         .addTag('courses', 'Course management endpoints')
         .addTag('lessons', 'Lesson management endpoints')
         .addTag('words', 'Word management endpoints')
+        .addTag(
+            'word-progress',
+            'Word progress and spaced repetition endpoints',
+        )
         .addTag('dictionary', 'Dictionary lookup endpoints')
         .build();
 

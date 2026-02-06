@@ -1,13 +1,24 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+    IsInt,
+    IsNotEmpty,
+    IsNumber,
+    IsOptional,
+    IsString,
+    IsUrl,
+    Min,
+    MinLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateLessonDto {
     @ApiProperty({
         description: 'Name of the lesson',
         example: 'Basic Greetings',
+        minLength: 1,
     })
     @IsString()
     @IsNotEmpty()
+    @MinLength(1)
     name: string;
 
     @ApiPropertyOptional({
@@ -16,14 +27,17 @@ export class CreateLessonDto {
     })
     @IsOptional()
     @IsString()
+    @IsUrl()
     coverImageUrl?: string;
 
     @ApiPropertyOptional({
         description: 'Maximum number of words in the lesson',
         example: 50,
+        minimum: 1,
     })
     @IsOptional()
-    @IsNumber()
+    @IsInt()
+    @Min(1)
     maxWords?: number;
 
     @ApiPropertyOptional({
@@ -39,9 +53,11 @@ export class UpdateLessonDto {
     @ApiPropertyOptional({
         description: 'Name of the lesson',
         example: 'Basic Greetings',
+        minLength: 1,
     })
     @IsOptional()
     @IsString()
+    @MinLength(1)
     name?: string;
 
     @ApiPropertyOptional({
@@ -50,14 +66,17 @@ export class UpdateLessonDto {
     })
     @IsOptional()
     @IsString()
+    @IsUrl()
     coverImageUrl?: string;
 
     @ApiPropertyOptional({
         description: 'Maximum number of words in the lesson',
         example: 50,
+        minimum: 1,
     })
     @IsOptional()
-    @IsNumber()
+    @IsInt()
+    @Min(1)
     maxWords?: number;
 
     @ApiPropertyOptional({

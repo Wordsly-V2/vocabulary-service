@@ -28,6 +28,8 @@ import {
     CourseDetailResponseDto,
     CoursesTotalStatsDto,
     CreateCourseDto,
+    GetCoursesQueryDto,
+    GetWordsQueryDto,
     PaginatedCourseResponseDto,
     UpdateCourseDto,
 } from './dto/courses.dto';
@@ -111,19 +113,15 @@ export class CoursesController {
     })
     async getCoursesByUserLoginId(
         @Param('userLoginId') userLoginId: string,
-        @Query('page') page: number = 1,
-        @Query('limit') limit: number = 10,
-        @Query('orderByField') orderByField: 'createdAt' | 'name' = 'createdAt',
-        @Query('orderByDirection') orderByDirection: 'asc' | 'desc' = 'asc',
-        @Query('searchQuery') searchQuery: string = '',
+        @Query() query: GetCoursesQueryDto,
     ) {
         return this.coursesService.getCoursesByUserLoginId(
             userLoginId,
-            page,
-            limit,
-            orderByField,
-            orderByDirection,
-            searchQuery,
+            query.page || 1,
+            query.limit || 10,
+            query.orderByField || 'createdAt',
+            query.orderByDirection || 'asc',
+            query.searchQuery || '',
         );
     }
 
@@ -283,9 +281,9 @@ export class CoursesController {
     async getWords(
         @Param('userLoginId') userLoginId: string,
         @Param('courseId') courseId: string,
-        @Query('ids') wordIds: string = '',
+        @Query() query: GetWordsQueryDto,
     ): Promise<Word[]> {
-        const wordIdsArray = wordIds.split(',').filter(Boolean);
+        const wordIdsArray = query.ids.split(',').filter(Boolean);
         return this.coursesService.getWords(
             userLoginId,
             courseId,

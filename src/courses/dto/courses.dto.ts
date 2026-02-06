@@ -1,14 +1,26 @@
 import { Course } from '@prisma/client';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+    IsEnum,
+    IsInt,
+    IsNotEmpty,
+    IsOptional,
+    IsString,
+    IsUrl,
+    Min,
+    MinLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class CreateCourseDto {
     @ApiProperty({
         description: 'Name of the course',
         example: 'English Vocabulary 101',
+        minLength: 1,
     })
     @IsString()
     @IsNotEmpty()
+    @MinLength(1)
     name: string;
 
     @ApiPropertyOptional({
@@ -17,6 +29,7 @@ export class CreateCourseDto {
     })
     @IsOptional()
     @IsString()
+    @IsUrl()
     coverImageUrl?: string;
 }
 
@@ -24,9 +37,11 @@ export class UpdateCourseDto {
     @ApiPropertyOptional({
         description: 'Name of the course',
         example: 'English Vocabulary 101',
+        minLength: 1,
     })
     @IsOptional()
     @IsString()
+    @MinLength(1)
     name?: string;
 
     @ApiPropertyOptional({
@@ -35,6 +50,7 @@ export class UpdateCourseDto {
     })
     @IsOptional()
     @IsString()
+    @IsUrl()
     coverImageUrl?: string;
 }
 
@@ -188,3 +204,64 @@ export type CoursesTotalStats = {
     totalLessons: number;
     totalWords: number;
 };
+
+// Query DTOs for validation
+export class GetCoursesQueryDto {
+    @ApiPropertyOptional({
+        description: 'Page number',
+        example: 1,
+        minimum: 1,
+    })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    page?: number = 1;
+
+    @ApiPropertyOptional({
+        description: 'Number of items per page',
+        example: 10,
+        minimum: 1,
+    })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    limit?: number = 10;
+
+    @ApiPropertyOptional({
+        description: 'Field to sort by',
+        enum: ['createdAt', 'name'],
+        example: 'createdAt',
+    })
+    @IsOptional()
+    @IsEnum(['createdAt', 'name'])
+    orderByField?: 'createdAt' | 'name' = 'createdAt';
+
+    @ApiPropertyOptional({
+        description: 'Sort direction',
+        enum: ['asc', 'desc'],
+        example: 'asc',
+    })
+    @IsOptional()
+    @IsEnum(['asc', 'desc'])
+    orderByDirection?: 'asc' | 'desc' = 'asc';
+
+    @ApiPropertyOptional({
+        description: 'Search query to filter courses by name',
+        example: 'English',
+    })
+    @IsOptional()
+    @IsString()
+    searchQuery?: string = '';
+}
+
+export class GetWordsQueryDto {
+    @ApiProperty({
+        description: 'Comma-separated list of word IDs',
+        example: 'word-uuid-1,word-uuid-2,word-uuid-3',
+    })
+    @IsString()
+    @IsNotEmpty()
+    ids: string;
+}
