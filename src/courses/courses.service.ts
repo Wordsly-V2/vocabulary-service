@@ -6,9 +6,8 @@ import { v7 as uuidv7 } from 'uuid';
 import {
     CourseResponse,
     CoursesTotalStats,
-    CreateCourse,
-    CreateCourseLesson,
-    CreateWord,
+    CreateCourseDto,
+    UpdateCourseDto,
 } from './dto/courses.dto';
 
 @Injectable()
@@ -121,11 +120,11 @@ export class CoursesService {
         };
     }
 
-    async createCoursesByUserLoginId(
+    async createCourse(
         userLoginId: string,
-        payload: CreateCourse,
-    ): Promise<{ success: boolean }> {
-        await this.prisma.course.create({
+        payload: CreateCourseDto,
+    ): Promise<Course> {
+        return this.prisma.course.create({
             data: {
                 id: uuidv7(),
                 name: payload.name,
@@ -133,10 +132,6 @@ export class CoursesService {
                 userLoginId: userLoginId,
             },
         });
-
-        return {
-            success: true,
-        };
     }
 
     async getCourseById(
@@ -171,283 +166,36 @@ export class CoursesService {
         return course;
     }
 
-    async deleteCourseById(
+    async updateCourse(
         userLoginId: string,
         courseId: string,
-    ): Promise<{ success: boolean }> {
-        await this.prisma.course.delete({
-            where: {
-                id: courseId,
-                userLoginId: userLoginId,
-            },
-        });
-        return {
-            success: true,
-        };
-    }
+        payload: UpdateCourseDto,
+    ): Promise<Course> {
+        // Verify course exists
+        await this.getCourseById(userLoginId, courseId);
 
-    async updateCourseById(
-        userLoginId: string,
-        courseId: string,
-        payload: Partial<CreateCourse>,
-    ): Promise<{ success: boolean }> {
-        await this.prisma.course.update({
+        return this.prisma.course.update({
             where: { id: courseId, userLoginId: userLoginId },
             data: {
                 name: payload.name,
                 coverImageUrl: payload.coverImageUrl,
             },
         });
-        return {
-            success: true,
-        };
     }
 
-    async createCourseLesson(
-        userLoginId: string,
-        courseId: string,
-        payload: CreateCourseLesson,
-    ): Promise<{ success: boolean }> {
-        const course = await this.getCourseById(userLoginId, courseId);
-        if (!course) {
-            throw new NotFoundException('Course not found');
-        }
+    async deleteCourse(userLoginId: string, courseId: string): Promise<void> {
+        // Verify course exists
+        await this.getCourseById(userLoginId, courseId);
 
-        await this.prisma.lesson.create({
-            data: {
-                id: uuidv7(),
-                name: payload.name,
-                coverImageUrl: payload.coverImageUrl,
-                maxWords: payload.maxWords,
-                orderIndex: payload.orderIndex,
-                courseId: courseId,
-            },
-        });
-        return {
-            success: true,
-        };
-    }
-
-    async updateCourseLessonById(
-        userLoginId: string,
-        courseId: string,
-        lessonId: string,
-        payload: Partial<CreateCourseLesson>,
-    ): Promise<{ success: boolean }> {
-        await this.prisma.lesson.update({
+        await this.prisma.course.delete({
             where: {
-                id: lessonId,
-                course: { userLoginId: userLoginId, id: courseId },
-            },
-            data: {
-                name: payload.name,
-                coverImageUrl: payload.coverImageUrl,
-                maxWords: payload.maxWords,
-                orderIndex: payload.orderIndex,
+                id: courseId,
+                userLoginId: userLoginId,
             },
         });
-        return {
-            success: true,
-        };
     }
 
-    async deleteCourseLessonById(
-        userLoginId: string,
-        courseId: string,
-        lessonId: string,
-    ): Promise<{ success: boolean }> {
-        await this.prisma.lesson.delete({
-            where: {
-                id: lessonId,
-                course: { userLoginId: userLoginId, id: courseId },
-            },
-        });
-        return {
-            success: true,
-        };
-    }
-
-    async createCourseLessonWord(
-        userLoginId: string,
-        courseId: string,
-        lessonId: string,
-        payload: CreateWord,
-    ): Promise<{ success: boolean }> {
-        const lesson = await this.prisma.lesson.findUnique({
-            where: {
-                id: lessonId,
-                course: { userLoginId: userLoginId, id: courseId },
-            },
-        });
-        if (!lesson) {
-            throw new NotFoundException('Lesson not found');
-        }
-
-        await this.prisma.word.create({
-            data: {
-                id: uuidv7(),
-                word: payload.word,
-                meaning: payload.meaning,
-                pronunciation: payload.pronunciation,
-                partOfSpeech: payload.partOfSpeech,
-                audioUrl: payload.audioUrl,
-                lessonId: lessonId,
-            },
-        });
-        return {
-            success: true,
-        };
-    }
-
-    async createCourseLessonWordsBulk(
-        userLoginId: string,
-        courseId: string,
-        lessonId: string,
-        payload: CreateWord[],
-    ): Promise<{ success: boolean }> {
-        const lesson = await this.prisma.lesson.findUnique({
-            where: {
-                id: lessonId,
-                course: { userLoginId: userLoginId, id: courseId },
-            },
-        });
-        if (!lesson) {
-            throw new NotFoundException('Lesson not found');
-        }
-
-        await this.prisma.word.createMany({
-            data: payload.map((word) => ({
-                id: uuidv7(),
-                word: word.word,
-                meaning: word.meaning,
-                pronunciation: word.pronunciation,
-                partOfSpeech: word.partOfSpeech,
-                audioUrl: word.audioUrl,
-                lessonId: lessonId,
-            })),
-            skipDuplicates: true,
-        });
-
-        return {
-            success: true,
-        };
-    }
-
-    async updateCourseLessonWordById(
-        userLoginId: string,
-        courseId: string,
-        lessonId: string,
-        wordId: string,
-        payload: Partial<CreateWord>,
-    ): Promise<{ success: boolean }> {
-        await this.prisma.word.update({
-            where: {
-                id: wordId,
-                lesson: {
-                    id: lessonId,
-                    course: {
-                        userLoginId: userLoginId,
-                        id: courseId,
-                    },
-                },
-            },
-            data: payload,
-        });
-        return {
-            success: true,
-        };
-    }
-
-    async deleteCourseLessonWordById(
-        userLoginId: string,
-        courseId: string,
-        lessonId: string,
-        wordId: string,
-    ): Promise<{ success: boolean }> {
-        await this.prisma.word.delete({
-            where: {
-                id: wordId,
-                lesson: {
-                    id: lessonId,
-                    course: {
-                        userLoginId: userLoginId,
-                        id: courseId,
-                    },
-                },
-            },
-        });
-        return {
-            success: true,
-        };
-    }
-
-    async moveWordToOtherLesson(
-        userLoginId: string,
-        courseId: string,
-        lessonId: string,
-        wordId: string,
-        targetLessonId: string,
-    ): Promise<{ success: boolean }> {
-        await this.prisma.word.update({
-            where: {
-                id: wordId,
-                lesson: {
-                    id: lessonId,
-                    course: { userLoginId: userLoginId, id: courseId },
-                },
-            },
-            data: { lessonId: targetLessonId },
-        });
-        return {
-            success: true,
-        };
-    }
-
-    async moveWordsBulkToOtherLesson(
-        userLoginId: string,
-        courseId: string,
-        lessonId: string,
-        wordIds: string[],
-        targetLessonId: string,
-    ): Promise<{ success: boolean }> {
-        await this.prisma.word.updateMany({
-            where: {
-                id: {
-                    in: wordIds,
-                },
-                lesson: {
-                    id: lessonId,
-                    course: { userLoginId: userLoginId, id: courseId },
-                },
-            },
-            data: { lessonId: targetLessonId },
-        });
-        return {
-            success: true,
-        };
-    }
-
-    async deleteCourseLessonWordsBulk(
-        userLoginId: string,
-        courseId: string,
-        lessonId: string,
-        wordIds: string[],
-    ): Promise<{ success: boolean }> {
-        await this.prisma.word.deleteMany({
-            where: {
-                id: { in: wordIds },
-                lesson: {
-                    id: lessonId,
-                    course: { userLoginId: userLoginId, id: courseId },
-                },
-            },
-        });
-        return {
-            success: true,
-        };
-    }
-
-    async getWordsById(
+    async getWordsByIds(
         userLoginId: string,
         courseId: string,
         wordIds: string[],

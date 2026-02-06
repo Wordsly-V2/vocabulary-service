@@ -1,10 +1,20 @@
 import { Course } from '@prisma/client';
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
-export class CreateCourse {
+export class CreateCourseDto {
     @IsString()
     @IsNotEmpty()
     name: string;
+
+    @IsOptional()
+    @IsString()
+    coverImageUrl?: string;
+}
+
+export class UpdateCourseDto {
+    @IsOptional()
+    @IsString()
+    name?: string;
 
     @IsOptional()
     @IsString()
@@ -21,43 +31,3 @@ export type CoursesTotalStats = {
     totalLessons: number;
     totalWords: number;
 };
-
-export class CreateCourseLesson {
-    @IsString()
-    @IsNotEmpty()
-    name: string;
-
-    @IsOptional()
-    @IsString()
-    coverImageUrl?: string;
-
-    @IsOptional()
-    @IsNumber()
-    maxWords?: number;
-
-    @IsOptional()
-    @IsNumber()
-    orderIndex?: number;
-}
-
-export class CreateWord {
-    @IsString()
-    @IsNotEmpty()
-    word: string;
-
-    @IsString()
-    @IsNotEmpty()
-    meaning: string;
-
-    @IsOptional()
-    @IsString()
-    pronunciation?: string;
-
-    @IsOptional()
-    @IsString()
-    partOfSpeech?: string;
-
-    @IsOptional()
-    @IsString()
-    audioUrl?: string;
-}

@@ -5,31 +5,31 @@ import { Pool } from 'pg';
 
 @Injectable()
 export class PrismaService
-  extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy
+    extends PrismaClient
+    implements OnModuleInit, OnModuleDestroy
 {
-  private pool: Pool;
+    private pool: Pool;
 
-  constructor() {
-    const pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-    });
+    constructor() {
+        const pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+        });
 
-    super({
-      adapter: new PrismaPg(pool),
-    });
+        super({
+            adapter: new PrismaPg(pool),
+        });
 
-    this.pool = pool;
-  }
+        this.pool = pool;
+    }
 
-  async onModuleInit() {
-    await this.$connect();
-    console.log('Prisma connected');
-  }
+    async onModuleInit() {
+        await this.$connect();
+        console.log('Prisma connected');
+    }
 
-  async onModuleDestroy() {
-    await this.$disconnect();
-    await this.pool.end(); // 🔥 VERY IMPORTANT
-    console.log('Prisma disconnected');
-  }
+    async onModuleDestroy() {
+        await this.$disconnect();
+        await this.pool.end(); // 🔥 VERY IMPORTANT
+        console.log('Prisma disconnected');
+    }
 }

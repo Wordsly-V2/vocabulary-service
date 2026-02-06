@@ -5,6 +5,7 @@ import { WordsService } from './words.service';
 export class WordsController {
     constructor(private readonly wordsService: WordsService) {}
 
+    // Dictionary endpoint (independent of user/course/lesson)
     @Get('pronunciation/:word')
     async getPronunciation(@Param('word') word: string) {
         return this.wordsService.getPronunciation(word);
