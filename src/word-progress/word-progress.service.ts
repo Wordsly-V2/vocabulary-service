@@ -205,20 +205,17 @@ export class WordProgressService {
         const { courseId, lessonId, limit = 20, includeNew = true } = query;
         const now = new Date();
 
-        // Build where clause for words
-        const wordWhere: Prisma.WordWhereInput = {
-            lesson: {
-                course: {
-                    userLoginId,
-                    ...(courseId && { id: courseId }),
-                },
-                ...(lessonId && { id: lessonId }),
-            },
-        };
-
         // Get words with their progress
         const words = await this.prisma.word.findMany({
-            where: wordWhere,
+            where: {
+                lesson: {
+                    course: {
+                        userLoginId,
+                        ...(courseId && { id: courseId }),
+                    },
+                    ...(lessonId && { id: lessonId }),
+                },
+            },
             include: {
                 wordProgress: {
                     where: {
@@ -232,9 +229,7 @@ export class WordProgressService {
                     },
                 },
             },
-            orderBy: {
-                word: 'asc',
-            },
+            orderBy: [{ lesson: { orderIndex: 'asc' } }, { word: 'asc' }],
         });
 
         // Filter and sort words based on due date

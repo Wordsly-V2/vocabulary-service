@@ -5,6 +5,7 @@ import {
     Delete,
     Get,
     Param,
+    ParseUUIDPipe,
     Post,
     Query,
     UseGuards,
@@ -33,6 +34,11 @@ import { WordProgressService } from './word-progress.service';
 
 @ApiTags('users/:userLoginId/word-progress')
 @Controller('users/:userLoginId/word-progress')
+@ApiParam({
+    name: 'userLoginId',
+    description: 'User login ID',
+    example: '01936c1e-1234-7890-abcd-ef1234567890',
+})
 @UseGuards(InternalServiceGuard)
 export class WordProgressController {
     constructor(private readonly wordProgressService: WordProgressService) {}
@@ -42,11 +48,6 @@ export class WordProgressController {
         summary: 'Record an answer for a word',
         description:
             "Records the user's answer quality and updates the spaced repetition schedule using SM-2 algorithm",
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
     })
     @ApiBody({ type: RecordAnswerDto })
     @ApiResponse({
@@ -59,7 +60,7 @@ export class WordProgressController {
         description: 'Word not found or access denied',
     })
     async recordAnswer(
-        @Param('userLoginId') userLoginId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
         @Body() recordAnswerDto: RecordAnswerDto,
     ): Promise<WordProgressResponseDto> {
         return this.wordProgressService.recordAnswer(
@@ -74,11 +75,6 @@ export class WordProgressController {
         description:
             'Records multiple word answers at once for better performance',
     })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
     @ApiBody({ type: BulkRecordAnswersDto })
     @ApiResponse({
         status: 200,
@@ -86,7 +82,7 @@ export class WordProgressController {
         type: [WordProgressResponseDto],
     })
     async recordAnswers(
-        @Param('userLoginId') userLoginId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
         @Body() bulkRecordAnswersDto: BulkRecordAnswersDto,
     ): Promise<WordProgressResponseDto[]> {
         return this.wordProgressService.recordAnswers(
@@ -100,11 +96,6 @@ export class WordProgressController {
         summary: 'Get words due for review',
         description:
             'Retrieves words that are due for review based on spaced repetition algorithm. Returns a mix of overdue words and new words.',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
     })
     @ApiQuery({
         name: 'courseId',
@@ -138,7 +129,7 @@ export class WordProgressController {
         type: [DueWordDto],
     })
     async getDueWords(
-        @Param('userLoginId') userLoginId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
         @Query() query: GetDueWordsQueryDto,
     ): Promise<DueWordDto[]> {
         return this.wordProgressService.getDueWords(userLoginId, query);
@@ -149,11 +140,6 @@ export class WordProgressController {
         summary: 'Get IDs of words due for review',
         description:
             'Same as due-words but returns only a list of word IDs. Uses the same filters (courseId, lessonId, limit, includeNew) and ordering.',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
     })
     @ApiQuery({
         name: 'courseId',
@@ -187,7 +173,7 @@ export class WordProgressController {
         type: DueWordIdsResponseDto,
     })
     async getDueWordIds(
-        @Param('userLoginId') userLoginId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
         @Query() query: GetDueWordsQueryDto,
     ): Promise<DueWordIdsResponseDto> {
         const wordIds = await this.wordProgressService.getDueWordIds(
@@ -202,11 +188,6 @@ export class WordProgressController {
         summary: 'Get words due for review with pagination',
         description:
             'Retrieves words that are due for review based on spaced repetition algorithm with pagination support. Returns total count of due words and paginated results.',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
     })
     @ApiQuery({
         name: 'courseId',
@@ -247,7 +228,7 @@ export class WordProgressController {
         type: PaginatedDueWordsResponseDto,
     })
     async getDueWordsPaginated(
-        @Param('userLoginId') userLoginId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
         @Query() query: GetDueWordsPaginatedQueryDto,
     ): Promise<PaginatedDueWordsResponseDto> {
         return this.wordProgressService.getDueWordsPaginated(
@@ -261,11 +242,6 @@ export class WordProgressController {
         summary: 'Get learning progress statistics',
         description:
             "Retrieves comprehensive statistics about the user's learning progress including new, learning, and review words",
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
     })
     @ApiQuery({
         name: 'courseId',
@@ -285,7 +261,7 @@ export class WordProgressController {
         type: WordProgressStatsDto,
     })
     async getProgressStats(
-        @Param('userLoginId') userLoginId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
         @Query() query: WordProgressStatsQueryDto,
     ): Promise<WordProgressStatsDto> {
         return this.wordProgressService.getProgressStats(
@@ -321,7 +297,7 @@ export class WordProgressController {
         description: 'Progress not found for this word',
     })
     async getWordProgress(
-        @Param('userLoginId') userLoginId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
         @Param('wordId') wordId: string,
     ): Promise<WordProgressResponseDto | null> {
         return this.wordProgressService.getWordProgress(userLoginId, wordId);
@@ -332,11 +308,6 @@ export class WordProgressController {
         summary: 'Reset progress for a specific word',
         description:
             'Deletes all learning progress for a word, allowing the user to start fresh',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
     })
     @ApiParam({
         name: 'wordId',
@@ -352,8 +323,8 @@ export class WordProgressController {
         description: 'Word not found or access denied',
     })
     async resetProgress(
-        @Param('userLoginId') userLoginId: string,
-        @Param('wordId') wordId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('wordId', new ParseUUIDPipe()) wordId: string,
     ): Promise<{ success: boolean }> {
         await this.wordProgressService.resetProgress(userLoginId, wordId);
         return { success: true };
