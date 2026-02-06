@@ -280,13 +280,13 @@ export class CoursesController {
         description: 'Words retrieved successfully',
         type: [WordResponseDto],
     })
-    async getWordsByIds(
+    async getWords(
         @Param('userLoginId') userLoginId: string,
         @Param('courseId') courseId: string,
-        @Query('ids') wordIds: string,
+        @Query('ids') wordIds: string = '',
     ): Promise<Word[]> {
-        const wordIdsArray = wordIds.split(',');
-        return this.coursesService.getWordsByIds(
+        const wordIdsArray = wordIds.split(',').filter(Boolean);
+        return this.coursesService.getWords(
             userLoginId,
             courseId,
             wordIdsArray,

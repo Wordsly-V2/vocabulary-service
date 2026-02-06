@@ -195,14 +195,14 @@ export class CoursesService {
         });
     }
 
-    async getWordsByIds(
+    async getWords(
         userLoginId: string,
         courseId: string,
         wordIds: string[],
     ): Promise<Word[]> {
         return this.prisma.word.findMany({
             where: {
-                id: { in: wordIds },
+                id: { in: wordIds.length > 0 ? wordIds : undefined },
                 lesson: {
                     course: { userLoginId: userLoginId, id: courseId },
                 },
