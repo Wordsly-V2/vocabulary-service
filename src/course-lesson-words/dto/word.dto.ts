@@ -136,7 +136,7 @@ export class BulkMoveWordsDto {
     })
     @IsArray()
     @ArrayMinSize(1)
-    @IsUUID('4', { each: true })
+    @IsUUID(undefined, { each: true })
     wordIds: string[];
 
     @ApiProperty({
@@ -156,7 +156,7 @@ export class BulkDeleteWordsDto {
     })
     @IsArray()
     @ArrayMinSize(1)
-    @IsUUID('4', { each: true })
+    @IsUUID(undefined, { each: true })
     wordIds: string[];
 }
 

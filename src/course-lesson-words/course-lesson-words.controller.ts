@@ -5,6 +5,7 @@ import {
     Delete,
     Get,
     Param,
+    ParseUUIDPipe,
     Post,
     Put,
     UseGuards,
@@ -31,6 +32,21 @@ import {
 
 @ApiTags('words')
 @Controller('users/:userLoginId/courses/:courseId/lessons/:lessonId/words')
+@ApiParam({
+    name: 'userLoginId',
+    description: 'User login ID',
+    example: '01936c1e-1234-7890-abcd-ef1234567890',
+})
+@ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '01936c1e-1234-7890-abcd-ef1234567890',
+})
+@ApiParam({
+    name: 'lessonId',
+    description: 'Lesson ID',
+    example: '01936c1e-1234-7890-abcd-ef1234567890',
+})
 @UseGuards(InternalServiceGuard)
 export class CourseLessonWordsController {
     constructor(private readonly wordsService: CourseLessonWordsService) {}
@@ -39,21 +55,6 @@ export class CourseLessonWordsController {
     @ApiOperation({
         summary: 'Create a new word',
         description: 'Creates a new word within a lesson',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
-    @ApiParam({
-        name: 'courseId',
-        description: 'Course ID',
-        example: 'course-uuid-123',
-    })
-    @ApiParam({
-        name: 'lessonId',
-        description: 'Lesson ID',
-        example: 'lesson-uuid-123',
     })
     @ApiBody({ type: CreateWordDto })
     @ApiResponse({
@@ -70,9 +71,9 @@ export class CourseLessonWordsController {
         description: 'Lesson not found',
     })
     async createWord(
-        @Param('userLoginId') userLoginId: string,
-        @Param('courseId') courseId: string,
-        @Param('lessonId') lessonId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
         @Body() createWordDto: CreateWordDto,
     ): Promise<Word> {
         return this.wordsService.createWord(
@@ -87,21 +88,6 @@ export class CourseLessonWordsController {
     @ApiOperation({
         summary: 'Create multiple words',
         description: 'Creates multiple words within a lesson in bulk',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
-    @ApiParam({
-        name: 'courseId',
-        description: 'Course ID',
-        example: 'course-uuid-123',
-    })
-    @ApiParam({
-        name: 'lessonId',
-        description: 'Lesson ID',
-        example: 'lesson-uuid-123',
     })
     @ApiBody({
         schema: {
@@ -124,9 +110,9 @@ export class CourseLessonWordsController {
         description: 'Invalid input data',
     })
     async createWordsBulk(
-        @Param('userLoginId') userLoginId: string,
-        @Param('courseId') courseId: string,
-        @Param('lessonId') lessonId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
         @Body() payload: { words: CreateWordDto[] },
     ): Promise<{ count: number }> {
         return this.wordsService.createWordsBulk(
@@ -143,21 +129,6 @@ export class CourseLessonWordsController {
         description: 'Retrieves a specific word by its ID',
     })
     @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
-    @ApiParam({
-        name: 'courseId',
-        description: 'Course ID',
-        example: 'course-uuid-123',
-    })
-    @ApiParam({
-        name: 'lessonId',
-        description: 'Lesson ID',
-        example: 'lesson-uuid-123',
-    })
-    @ApiParam({
         name: 'wordId',
         description: 'Word ID',
         example: 'word-uuid-123',
@@ -172,10 +143,10 @@ export class CourseLessonWordsController {
         description: 'Word not found',
     })
     async getWordById(
-        @Param('userLoginId') userLoginId: string,
-        @Param('courseId') courseId: string,
-        @Param('lessonId') lessonId: string,
-        @Param('wordId') wordId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
+        @Param('wordId', new ParseUUIDPipe()) wordId: string,
     ): Promise<Word> {
         return this.wordsService.getWordById(
             userLoginId,
@@ -189,21 +160,6 @@ export class CourseLessonWordsController {
     @ApiOperation({
         summary: 'Update a word',
         description: 'Updates an existing word',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
-    @ApiParam({
-        name: 'courseId',
-        description: 'Course ID',
-        example: 'course-uuid-123',
-    })
-    @ApiParam({
-        name: 'lessonId',
-        description: 'Lesson ID',
-        example: 'lesson-uuid-123',
     })
     @ApiParam({
         name: 'wordId',
@@ -221,10 +177,10 @@ export class CourseLessonWordsController {
         description: 'Word not found',
     })
     async updateWord(
-        @Param('userLoginId') userLoginId: string,
-        @Param('courseId') courseId: string,
-        @Param('lessonId') lessonId: string,
-        @Param('wordId') wordId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
+        @Param('wordId', new ParseUUIDPipe()) wordId: string,
         @Body() updateWordDto: UpdateWordDto,
     ): Promise<Word> {
         return this.wordsService.updateWord(
@@ -242,21 +198,6 @@ export class CourseLessonWordsController {
         description: 'Deletes a word from a lesson',
     })
     @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
-    @ApiParam({
-        name: 'courseId',
-        description: 'Course ID',
-        example: 'course-uuid-123',
-    })
-    @ApiParam({
-        name: 'lessonId',
-        description: 'Lesson ID',
-        example: 'lesson-uuid-123',
-    })
-    @ApiParam({
         name: 'wordId',
         description: 'Word ID',
         example: 'word-uuid-123',
@@ -271,10 +212,10 @@ export class CourseLessonWordsController {
         description: 'Word not found',
     })
     async deleteWord(
-        @Param('userLoginId') userLoginId: string,
-        @Param('courseId') courseId: string,
-        @Param('lessonId') lessonId: string,
-        @Param('wordId') wordId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
+        @Param('wordId', new ParseUUIDPipe()) wordId: string,
     ): Promise<{ success: boolean }> {
         await this.wordsService.deleteWord(
             userLoginId,
@@ -289,21 +230,6 @@ export class CourseLessonWordsController {
     @ApiOperation({
         summary: 'Move a word to another lesson',
         description: 'Moves a word from the current lesson to a target lesson',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
-    @ApiParam({
-        name: 'courseId',
-        description: 'Course ID',
-        example: 'course-uuid-123',
-    })
-    @ApiParam({
-        name: 'lessonId',
-        description: 'Source lesson ID',
-        example: 'lesson-uuid-123',
     })
     @ApiParam({
         name: 'wordId',
@@ -321,10 +247,10 @@ export class CourseLessonWordsController {
         description: 'Word or target lesson not found',
     })
     async moveWord(
-        @Param('userLoginId') userLoginId: string,
-        @Param('courseId') courseId: string,
-        @Param('lessonId') lessonId: string,
-        @Param('wordId') wordId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
+        @Param('wordId', new ParseUUIDPipe()) wordId: string,
         @Body() moveWordDto: MoveWordDto,
     ): Promise<Word> {
         return this.wordsService.moveWord(
@@ -342,21 +268,6 @@ export class CourseLessonWordsController {
         description:
             'Moves multiple words from the current lesson to a target lesson in bulk',
     })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
-    @ApiParam({
-        name: 'courseId',
-        description: 'Course ID',
-        example: 'course-uuid-123',
-    })
-    @ApiParam({
-        name: 'lessonId',
-        description: 'Source lesson ID',
-        example: 'lesson-uuid-123',
-    })
     @ApiBody({ type: BulkMoveWordsDto })
     @ApiResponse({
         status: 200,
@@ -368,9 +279,9 @@ export class CourseLessonWordsController {
         description: 'Target lesson not found',
     })
     async moveWordsBulk(
-        @Param('userLoginId') userLoginId: string,
-        @Param('courseId') courseId: string,
-        @Param('lessonId') lessonId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
         @Body() bulkMoveWordsDto: BulkMoveWordsDto,
     ): Promise<{ count: number }> {
         return this.wordsService.moveWordsBulk(
@@ -387,21 +298,6 @@ export class CourseLessonWordsController {
         summary: 'Delete multiple words',
         description: 'Deletes multiple words from a lesson in bulk',
     })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
-    @ApiParam({
-        name: 'courseId',
-        description: 'Course ID',
-        example: 'course-uuid-123',
-    })
-    @ApiParam({
-        name: 'lessonId',
-        description: 'Lesson ID',
-        example: 'lesson-uuid-123',
-    })
     @ApiBody({ type: BulkDeleteWordsDto })
     @ApiResponse({
         status: 200,
@@ -409,9 +305,9 @@ export class CourseLessonWordsController {
         type: BulkOperationResponseDto,
     })
     async deleteWordsBulk(
-        @Param('userLoginId') userLoginId: string,
-        @Param('courseId') courseId: string,
-        @Param('lessonId') lessonId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
         @Body() bulkDeleteWordsDto: BulkDeleteWordsDto,
     ): Promise<{ count: number }> {
         return this.wordsService.deleteWordsBulk(

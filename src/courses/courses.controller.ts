@@ -36,6 +36,11 @@ import {
 
 @ApiTags('users/:userLoginId/courses')
 @Controller('users/:userLoginId/courses')
+@ApiParam({
+    name: 'userLoginId',
+    description: 'User login ID',
+    example: '01936c1e-1234-7890-abcd-ef1234567890',
+})
 @UseGuards(InternalServiceGuard)
 export class CoursesController {
     constructor(private readonly coursesService: CoursesService) {}
@@ -45,11 +50,6 @@ export class CoursesController {
         summary: 'Get course statistics',
         description:
             'Retrieves total statistics for all courses, lessons, and words for a user',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
     })
     @ApiResponse({
         status: 200,
@@ -65,11 +65,6 @@ export class CoursesController {
         summary: 'Get all courses for a user',
         description:
             'Retrieves paginated list of courses with filtering and sorting options',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
     })
     @ApiQuery({
         name: 'page',
@@ -130,11 +125,6 @@ export class CoursesController {
         summary: 'Create a new course',
         description: 'Creates a new course for the specified user',
     })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
     @ApiBody({ type: CreateCourseDto })
     @ApiResponse({
         status: 201,
@@ -162,11 +152,6 @@ export class CoursesController {
         description: 'User login ID',
         example: 'user123',
     })
-    @ApiParam({
-        name: 'courseId',
-        description: 'Course ID',
-        example: 'course-uuid-123',
-    })
     @ApiResponse({
         status: 200,
         description: 'Course retrieved successfully',
@@ -187,11 +172,6 @@ export class CoursesController {
     @ApiOperation({
         summary: 'Update a course',
         description: 'Updates an existing course',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
     })
     @ApiParam({
         name: 'courseId',
@@ -227,11 +207,6 @@ export class CoursesController {
             'Deletes a course and all its associated lessons and words',
     })
     @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
-    @ApiParam({
         name: 'courseId',
         description: 'Course ID',
         example: 'course-uuid-123',
@@ -257,11 +232,6 @@ export class CoursesController {
     @ApiOperation({
         summary: 'Get words by IDs',
         description: 'Retrieves multiple words from a course by their IDs',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
     })
     @ApiParam({
         name: 'courseId',

@@ -6,6 +6,7 @@ import {
     Delete,
     Get,
     Param,
+    ParseUUIDPipe,
     Post,
     Put,
     UseGuards,
@@ -22,11 +23,22 @@ import { CourseLessonsService } from './course-lessons.service';
 import {
     CreateLessonDto,
     LessonResponseDto,
+    ReorderLessonsDto,
     UpdateLessonDto,
 } from './dto/lesson.dto';
 
 @ApiTags('lessons')
 @Controller('users/:userLoginId/courses/:courseId/lessons')
+@ApiParam({
+    name: 'userLoginId',
+    description: 'User login ID',
+    example: '01936c1e-1234-7890-abcd-ef1234567890',
+})
+@ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '01936c1e-1234-7890-abcd-ef1234567890',
+})
 @UseGuards(InternalServiceGuard)
 export class CourseLessonsController {
     constructor(private readonly lessonsService: CourseLessonsService) {}
@@ -35,16 +47,6 @@ export class CourseLessonsController {
     @ApiOperation({
         summary: 'Create a new lesson',
         description: 'Creates a new lesson within a course',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
-    @ApiParam({
-        name: 'courseId',
-        description: 'Course ID',
-        example: 'course-uuid-123',
     })
     @ApiBody({ type: CreateLessonDto })
     @ApiResponse({
@@ -61,8 +63,8 @@ export class CourseLessonsController {
         description: 'Course not found',
     })
     async createLesson(
-        @Param('userLoginId') userLoginId: string,
-        @Param('courseId') courseId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
         @Body() createLessonDto: CreateLessonDto,
     ): Promise<Lesson> {
         return this.lessonsService.createLesson(
@@ -72,20 +74,42 @@ export class CourseLessonsController {
         );
     }
 
+    @Put('reorder')
+    @ApiOperation({
+        summary: 'Re-order lessons (drag and drop)',
+        description:
+            'Moves one lesson to a new position. Send the dragged lesson ID and the target 1-based order index.',
+    })
+    @ApiBody({ type: ReorderLessonsDto })
+    @ApiResponse({
+        status: 200,
+        description: 'Lessons re-ordered successfully',
+        type: [LessonResponseDto],
+    })
+    @ApiResponse({
+        status: 400,
+        description: 'Lesson does not belong to this course',
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Course not found',
+    })
+    async reorderLessons(
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+        @Body() reorderLessonsDto: ReorderLessonsDto,
+    ): Promise<Lesson[]> {
+        return this.lessonsService.reorderLessons(
+            userLoginId,
+            courseId,
+            reorderLessonsDto,
+        );
+    }
+
     @Get(':lessonId')
     @ApiOperation({
         summary: 'Get lesson by ID',
         description: 'Retrieves a specific lesson by its ID',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
-    @ApiParam({
-        name: 'courseId',
-        description: 'Course ID',
-        example: 'course-uuid-123',
     })
     @ApiParam({
         name: 'lessonId',
@@ -102,9 +126,9 @@ export class CourseLessonsController {
         description: 'Lesson not found',
     })
     async getLessonById(
-        @Param('userLoginId') userLoginId: string,
-        @Param('courseId') courseId: string,
-        @Param('lessonId') lessonId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
     ): Promise<Lesson> {
         return this.lessonsService.getLessonById(
             userLoginId,
@@ -117,16 +141,6 @@ export class CourseLessonsController {
     @ApiOperation({
         summary: 'Update a lesson',
         description: 'Updates an existing lesson',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
-    @ApiParam({
-        name: 'courseId',
-        description: 'Course ID',
-        example: 'course-uuid-123',
     })
     @ApiParam({
         name: 'lessonId',
@@ -144,9 +158,9 @@ export class CourseLessonsController {
         description: 'Lesson not found',
     })
     async updateLesson(
-        @Param('userLoginId') userLoginId: string,
-        @Param('courseId') courseId: string,
-        @Param('lessonId') lessonId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
         @Body() updateLessonDto: UpdateLessonDto,
     ): Promise<Lesson> {
         return this.lessonsService.updateLesson(
@@ -163,16 +177,6 @@ export class CourseLessonsController {
         description: 'Deletes a lesson and all its associated words',
     })
     @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
-    })
-    @ApiParam({
-        name: 'courseId',
-        description: 'Course ID',
-        example: 'course-uuid-123',
-    })
-    @ApiParam({
         name: 'lessonId',
         description: 'Lesson ID',
         example: 'lesson-uuid-123',
@@ -187,9 +191,9 @@ export class CourseLessonsController {
         description: 'Lesson not found',
     })
     async deleteLesson(
-        @Param('userLoginId') userLoginId: string,
-        @Param('courseId') courseId: string,
-        @Param('lessonId') lessonId: string,
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
     ): Promise<{ success: boolean }> {
         await this.lessonsService.deleteLesson(userLoginId, courseId, lessonId);
         return { success: true };

@@ -1,14 +1,14 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
     IsInt,
     IsNotEmpty,
-    IsNumber,
     IsOptional,
     IsString,
     IsUrl,
+    IsUUID,
     Min,
     MinLength,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateLessonDto {
     @ApiProperty({
@@ -39,14 +39,26 @@ export class CreateLessonDto {
     @IsInt()
     @Min(1)
     maxWords?: number;
+}
 
-    @ApiPropertyOptional({
-        description: 'Order index for sorting lessons',
-        example: 1,
+export class ReorderLessonsDto {
+    @ApiProperty({
+        description: 'ID of the lesson that was dragged',
+        example: '01936c1e-1234-7890-abcd-ef1234567890',
     })
-    @IsOptional()
-    @IsNumber()
-    orderIndex?: number;
+    @IsUUID()
+    @IsNotEmpty()
+    lessonId: string;
+
+    @ApiProperty({
+        description:
+            'Target position (1-based). The dragged lesson will be placed at this order index.',
+        example: 3,
+        minimum: 1,
+    })
+    @IsInt()
+    @Min(1)
+    targetOrderIndex: number;
 }
 
 export class UpdateLessonDto {
@@ -78,14 +90,6 @@ export class UpdateLessonDto {
     @IsInt()
     @Min(1)
     maxWords?: number;
-
-    @ApiPropertyOptional({
-        description: 'Order index for sorting lessons',
-        example: 1,
-    })
-    @IsOptional()
-    @IsNumber()
-    orderIndex?: number;
 }
 
 export class LessonResponseDto {
