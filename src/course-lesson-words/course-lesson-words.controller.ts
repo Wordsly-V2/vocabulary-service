@@ -21,9 +21,12 @@ import { CourseLessonWordsService } from './course-lesson-words.service';
 import {
     BulkDeleteWordsDto,
     BulkMoveWordsDto,
+    BulkOperationResponseDto,
     CreateWordDto,
+    DeleteResponseDto,
     MoveWordDto,
     UpdateWordDto,
+    WordResponseDto,
 } from './dto/word.dto';
 
 @ApiTags('words')
@@ -56,6 +59,7 @@ export class CourseLessonWordsController {
     @ApiResponse({
         status: 201,
         description: 'Word created successfully',
+        type: WordResponseDto,
     })
     @ApiResponse({
         status: 400,
@@ -113,12 +117,7 @@ export class CourseLessonWordsController {
     @ApiResponse({
         status: 201,
         description: 'Words created successfully',
-        schema: {
-            type: 'object',
-            properties: {
-                count: { type: 'number', example: 5 },
-            },
-        },
+        type: BulkOperationResponseDto,
     })
     @ApiResponse({
         status: 400,
@@ -166,6 +165,7 @@ export class CourseLessonWordsController {
     @ApiResponse({
         status: 200,
         description: 'Word retrieved successfully',
+        type: WordResponseDto,
     })
     @ApiResponse({
         status: 404,
@@ -214,6 +214,7 @@ export class CourseLessonWordsController {
     @ApiResponse({
         status: 200,
         description: 'Word updated successfully',
+        type: WordResponseDto,
     })
     @ApiResponse({
         status: 404,
@@ -263,12 +264,7 @@ export class CourseLessonWordsController {
     @ApiResponse({
         status: 200,
         description: 'Word deleted successfully',
-        schema: {
-            type: 'object',
-            properties: {
-                success: { type: 'boolean', example: true },
-            },
-        },
+        type: DeleteResponseDto,
     })
     @ApiResponse({
         status: 404,
@@ -318,6 +314,7 @@ export class CourseLessonWordsController {
     @ApiResponse({
         status: 200,
         description: 'Word moved successfully',
+        type: WordResponseDto,
     })
     @ApiResponse({
         status: 404,
@@ -364,12 +361,7 @@ export class CourseLessonWordsController {
     @ApiResponse({
         status: 200,
         description: 'Words moved successfully',
-        schema: {
-            type: 'object',
-            properties: {
-                count: { type: 'number', example: 5 },
-            },
-        },
+        type: BulkOperationResponseDto,
     })
     @ApiResponse({
         status: 404,
@@ -414,12 +406,7 @@ export class CourseLessonWordsController {
     @ApiResponse({
         status: 200,
         description: 'Words deleted successfully',
-        schema: {
-            type: 'object',
-            properties: {
-                count: { type: 'number', example: 5 },
-            },
-        },
+        type: BulkOperationResponseDto,
     })
     async deleteWordsBulk(
         @Param('userLoginId') userLoginId: string,

@@ -133,3 +133,75 @@ export class BulkDeleteWordsDto {
     @IsNotEmpty()
     wordIds: string[];
 }
+
+export class WordResponseDto {
+    @ApiProperty({
+        description: 'Word ID',
+        example: '01936c1e-1234-7890-abcd-ef1234567890',
+    })
+    id: string;
+
+    @ApiProperty({
+        description: 'The word',
+        example: 'hello',
+    })
+    word: string;
+
+    @ApiProperty({
+        description: 'The meaning of the word',
+        example: 'used as a greeting',
+    })
+    meaning: string;
+
+    @ApiPropertyOptional({
+        description: 'Pronunciation of the word',
+        example: '/həˈloʊ/',
+    })
+    pronunciation: string | null;
+
+    @ApiPropertyOptional({
+        description: 'Part of speech',
+        example: 'interjection',
+    })
+    partOfSpeech: string | null;
+
+    @ApiPropertyOptional({
+        description: 'URL to audio pronunciation',
+        example: 'https://example.com/audio/hello.mp3',
+    })
+    audioUrl: string | null;
+
+    @ApiProperty({
+        description: 'Lesson ID',
+        example: '01936c1e-1234-7890-abcd-ef1234567890',
+    })
+    lessonId: string;
+
+    @ApiProperty({
+        description: 'Word creation timestamp',
+        example: '2024-01-15T10:30:00Z',
+    })
+    createdAt: Date;
+
+    @ApiProperty({
+        description: 'Word last update timestamp',
+        example: '2024-01-20T15:45:00Z',
+    })
+    updatedAt: Date;
+}
+
+export class BulkOperationResponseDto {
+    @ApiProperty({
+        description: 'Number of items affected',
+        example: 5,
+    })
+    count: number;
+}
+
+export class DeleteResponseDto {
+    @ApiProperty({
+        description: 'Operation success status',
+        example: true,
+    })
+    success: boolean;
+}

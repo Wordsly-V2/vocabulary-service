@@ -1,3 +1,7 @@
+import {
+    DeleteResponseDto,
+    WordResponseDto,
+} from '@/course-lesson-words/dto/word.dto';
 import { InternalServiceGuard } from '@/guard/internal-service/internal-service.guard';
 import {
     Body,
@@ -20,7 +24,13 @@ import {
 } from '@nestjs/swagger';
 import { Course, Word } from '@prisma/client';
 import { CoursesService } from './courses.service';
-import { CreateCourseDto, UpdateCourseDto } from './dto/courses.dto';
+import {
+    CourseDetailResponseDto,
+    CoursesTotalStatsDto,
+    CreateCourseDto,
+    PaginatedCourseResponseDto,
+    UpdateCourseDto,
+} from './dto/courses.dto';
 
 @ApiTags('courses')
 @Controller('users/:userLoginId/courses')
@@ -42,14 +52,7 @@ export class CoursesController {
     @ApiResponse({
         status: 200,
         description: 'Statistics retrieved successfully',
-        schema: {
-            type: 'object',
-            properties: {
-                totalCourses: { type: 'number', example: 5 },
-                totalLessons: { type: 'number', example: 25 },
-                totalWords: { type: 'number', example: 500 },
-            },
-        },
+        type: CoursesTotalStatsDto,
     })
     async getCoursesTotalStats(@Param('userLoginId') userLoginId: string) {
         return this.coursesService.getCoursesTotalStats(userLoginId);
@@ -104,6 +107,7 @@ export class CoursesController {
     @ApiResponse({
         status: 200,
         description: 'Courses retrieved successfully',
+        type: PaginatedCourseResponseDto,
     })
     async getCoursesByUserLoginId(
         @Param('userLoginId') userLoginId: string,
@@ -137,6 +141,7 @@ export class CoursesController {
     @ApiResponse({
         status: 201,
         description: 'Course created successfully',
+        type: CourseDetailResponseDto,
     })
     @ApiResponse({
         status: 400,
@@ -167,6 +172,7 @@ export class CoursesController {
     @ApiResponse({
         status: 200,
         description: 'Course retrieved successfully',
+        type: CourseDetailResponseDto,
     })
     @ApiResponse({
         status: 404,
@@ -198,6 +204,7 @@ export class CoursesController {
     @ApiResponse({
         status: 200,
         description: 'Course updated successfully',
+        type: CourseDetailResponseDto,
     })
     @ApiResponse({
         status: 404,
@@ -234,12 +241,7 @@ export class CoursesController {
     @ApiResponse({
         status: 200,
         description: 'Course deleted successfully',
-        schema: {
-            type: 'object',
-            properties: {
-                success: { type: 'boolean', example: true },
-            },
-        },
+        type: DeleteResponseDto,
     })
     @ApiResponse({
         status: 404,
@@ -276,6 +278,7 @@ export class CoursesController {
     @ApiResponse({
         status: 200,
         description: 'Words retrieved successfully',
+        type: [WordResponseDto],
     })
     async getWordsByIds(
         @Param('userLoginId') userLoginId: string,

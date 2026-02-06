@@ -1,3 +1,4 @@
+import { DeleteResponseDto } from '@/course-lesson-words/dto/word.dto';
 import { InternalServiceGuard } from '@/guard/internal-service/internal-service.guard';
 import {
     Body,
@@ -18,7 +19,11 @@ import {
 } from '@nestjs/swagger';
 import { Lesson } from '@prisma/client';
 import { CourseLessonsService } from './course-lessons.service';
-import { CreateLessonDto, UpdateLessonDto } from './dto/lesson.dto';
+import {
+    CreateLessonDto,
+    LessonResponseDto,
+    UpdateLessonDto,
+} from './dto/lesson.dto';
 
 @ApiTags('lessons')
 @Controller('users/:userLoginId/courses/:courseId/lessons')
@@ -45,6 +50,7 @@ export class CourseLessonsController {
     @ApiResponse({
         status: 201,
         description: 'Lesson created successfully',
+        type: LessonResponseDto,
     })
     @ApiResponse({
         status: 400,
@@ -89,6 +95,7 @@ export class CourseLessonsController {
     @ApiResponse({
         status: 200,
         description: 'Lesson retrieved successfully',
+        type: LessonResponseDto,
     })
     @ApiResponse({
         status: 404,
@@ -130,6 +137,7 @@ export class CourseLessonsController {
     @ApiResponse({
         status: 200,
         description: 'Lesson updated successfully',
+        type: LessonResponseDto,
     })
     @ApiResponse({
         status: 404,
@@ -172,12 +180,7 @@ export class CourseLessonsController {
     @ApiResponse({
         status: 200,
         description: 'Lesson deleted successfully',
-        schema: {
-            type: 'object',
-            properties: {
-                success: { type: 'boolean', example: true },
-            },
-        },
+        type: DeleteResponseDto,
     })
     @ApiResponse({
         status: 404,

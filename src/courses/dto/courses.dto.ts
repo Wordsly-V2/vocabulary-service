@@ -38,6 +38,146 @@ export class UpdateCourseDto {
     coverImageUrl?: string;
 }
 
+export class CourseResponseDto {
+    @ApiProperty({
+        description: 'Course ID',
+        example: '01936c1e-1234-7890-abcd-ef1234567890',
+    })
+    id: string;
+
+    @ApiProperty({
+        description: 'Course name',
+        example: 'English Vocabulary 101',
+    })
+    name: string;
+
+    @ApiPropertyOptional({
+        description: 'URL of the course cover image',
+        example: 'https://example.com/images/course-cover.jpg',
+    })
+    coverImageUrl: string | null;
+
+    @ApiProperty({
+        description: 'User login ID',
+        example: '01936c1e-1234-7890-abcd-ef1234567890',
+    })
+    userLoginId: string | null;
+
+    @ApiProperty({
+        description: 'Total number of lessons in the course',
+        example: 10,
+    })
+    totalLessonsCount: number;
+
+    @ApiProperty({
+        description: 'Total number of words in the course',
+        example: 250,
+    })
+    totalWordsCount: number;
+}
+
+export class CoursesTotalStatsDto {
+    @ApiProperty({
+        description: 'Total number of courses',
+        example: 5,
+    })
+    totalCourses: number;
+
+    @ApiProperty({
+        description: 'Total number of lessons across all courses',
+        example: 25,
+    })
+    totalLessons: number;
+
+    @ApiProperty({
+        description: 'Total number of words across all courses',
+        example: 500,
+    })
+    totalWords: number;
+}
+
+export class PaginatedCourseResponseDto {
+    @ApiProperty({
+        description: 'Array of courses',
+        type: [CourseResponseDto],
+    })
+    items: CourseResponseDto[];
+
+    @ApiProperty({
+        description: 'Number of items in current page',
+        example: 10,
+    })
+    currentPageItems: number;
+
+    @ApiProperty({
+        description: 'Total number of items',
+        example: 45,
+    })
+    totalItems: number;
+
+    @ApiProperty({
+        description: 'Total number of pages',
+        example: 5,
+    })
+    totalPages: number;
+
+    @ApiProperty({
+        description: 'Current page number',
+        example: 1,
+    })
+    currentPage: number;
+
+    @ApiProperty({
+        description: 'Number of items per page',
+        example: 10,
+    })
+    limit: number;
+}
+
+export class CourseDetailResponseDto {
+    @ApiProperty({
+        description: 'Course ID',
+        example: '01936c1e-1234-7890-abcd-ef1234567890',
+    })
+    id: string;
+
+    @ApiProperty({
+        description: 'Course name',
+        example: 'English Vocabulary 101',
+    })
+    name: string;
+
+    @ApiPropertyOptional({
+        description: 'URL of the course cover image',
+        example: 'https://example.com/images/course-cover.jpg',
+    })
+    coverImageUrl: string | null;
+
+    @ApiProperty({
+        description: 'User login ID',
+        example: '01936c1e-1234-7890-abcd-ef1234567890',
+    })
+    userLoginId: string | null;
+
+    @ApiProperty({
+        description: 'Course creation timestamp',
+        example: '2024-01-15T10:30:00Z',
+    })
+    createdAt: Date;
+
+    @ApiProperty({
+        description: 'Course last update timestamp',
+        example: '2024-01-20T15:45:00Z',
+    })
+    updatedAt: Date;
+
+    @ApiProperty({
+        description: 'Lessons in the course',
+        type: 'array',
+    })
+    lessons: any[];
+}
+
 export type CourseResponse = Omit<Course, 'createdAt' | 'updatedAt'> & {
     totalLessonsCount: number;
     totalWordsCount: number;
