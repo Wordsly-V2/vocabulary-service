@@ -1,3 +1,4 @@
+import { InternalServiceGuard } from '@/guard/internal-service/internal-service.guard';
 import {
     Body,
     Controller,
@@ -6,16 +7,53 @@ import {
     Param,
     Post,
     Put,
+    UseGuards,
 } from '@nestjs/common';
+import {
+    ApiBody,
+    ApiOperation,
+    ApiParam,
+    ApiResponse,
+    ApiTags,
+} from '@nestjs/swagger';
+import { Lesson } from '@prisma/client';
 import { CourseLessonsService } from './course-lessons.service';
 import { CreateLessonDto, UpdateLessonDto } from './dto/lesson.dto';
-import { Lesson } from '@prisma/client';
 
+@ApiTags('lessons')
 @Controller('users/:userLoginId/courses/:courseId/lessons')
+@UseGuards(InternalServiceGuard)
 export class CourseLessonsController {
     constructor(private readonly lessonsService: CourseLessonsService) {}
 
     @Post()
+    @ApiOperation({
+        summary: 'Create a new lesson',
+        description: 'Creates a new lesson within a course',
+    })
+    @ApiParam({
+        name: 'userLoginId',
+        description: 'User login ID',
+        example: 'user123',
+    })
+    @ApiParam({
+        name: 'courseId',
+        description: 'Course ID',
+        example: 'course-uuid-123',
+    })
+    @ApiBody({ type: CreateLessonDto })
+    @ApiResponse({
+        status: 201,
+        description: 'Lesson created successfully',
+    })
+    @ApiResponse({
+        status: 400,
+        description: 'Invalid input data',
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Course not found',
+    })
     async createLesson(
         @Param('userLoginId') userLoginId: string,
         @Param('courseId') courseId: string,
@@ -29,6 +67,33 @@ export class CourseLessonsController {
     }
 
     @Get(':lessonId')
+    @ApiOperation({
+        summary: 'Get lesson by ID',
+        description: 'Retrieves a specific lesson by its ID',
+    })
+    @ApiParam({
+        name: 'userLoginId',
+        description: 'User login ID',
+        example: 'user123',
+    })
+    @ApiParam({
+        name: 'courseId',
+        description: 'Course ID',
+        example: 'course-uuid-123',
+    })
+    @ApiParam({
+        name: 'lessonId',
+        description: 'Lesson ID',
+        example: 'lesson-uuid-123',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Lesson retrieved successfully',
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Lesson not found',
+    })
     async getLessonById(
         @Param('userLoginId') userLoginId: string,
         @Param('courseId') courseId: string,
@@ -42,6 +107,34 @@ export class CourseLessonsController {
     }
 
     @Put(':lessonId')
+    @ApiOperation({
+        summary: 'Update a lesson',
+        description: 'Updates an existing lesson',
+    })
+    @ApiParam({
+        name: 'userLoginId',
+        description: 'User login ID',
+        example: 'user123',
+    })
+    @ApiParam({
+        name: 'courseId',
+        description: 'Course ID',
+        example: 'course-uuid-123',
+    })
+    @ApiParam({
+        name: 'lessonId',
+        description: 'Lesson ID',
+        example: 'lesson-uuid-123',
+    })
+    @ApiBody({ type: UpdateLessonDto })
+    @ApiResponse({
+        status: 200,
+        description: 'Lesson updated successfully',
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Lesson not found',
+    })
     async updateLesson(
         @Param('userLoginId') userLoginId: string,
         @Param('courseId') courseId: string,
@@ -57,6 +150,39 @@ export class CourseLessonsController {
     }
 
     @Delete(':lessonId')
+    @ApiOperation({
+        summary: 'Delete a lesson',
+        description: 'Deletes a lesson and all its associated words',
+    })
+    @ApiParam({
+        name: 'userLoginId',
+        description: 'User login ID',
+        example: 'user123',
+    })
+    @ApiParam({
+        name: 'courseId',
+        description: 'Course ID',
+        example: 'course-uuid-123',
+    })
+    @ApiParam({
+        name: 'lessonId',
+        description: 'Lesson ID',
+        example: 'lesson-uuid-123',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Lesson deleted successfully',
+        schema: {
+            type: 'object',
+            properties: {
+                success: { type: 'boolean', example: true },
+            },
+        },
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Lesson not found',
+    })
     async deleteLesson(
         @Param('userLoginId') userLoginId: string,
         @Param('courseId') courseId: string,
