@@ -1,5 +1,8 @@
 import { Course, Lesson, Word } from '@prisma/client';
-import { WordProgressStatsDto } from '@/word-progress/dto/word-progress.dto';
+import {
+    WordProgressResponseDto,
+    WordProgressStatsDto,
+} from '@/word-progress/dto/word-progress.dto';
 import {
     IsEnum,
     IsInt,
@@ -220,9 +223,14 @@ export type CoursesTotalStats = {
     wordProgressStats: WordProgressStatsDto;
 };
 
+/** Word with its own word-progress (for course detail). */
+export type WordWithProgress = Word & {
+    wordProgress: WordProgressResponseDto | null;
+};
+
 /** Lesson with words and word-progress stats (for course detail). */
 export type LessonWithWordProgressStats = Lesson & {
-    words: Word[];
+    words: WordWithProgress[];
     wordProgressStats: WordProgressStatsDto;
 };
 

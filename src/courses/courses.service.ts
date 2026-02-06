@@ -168,16 +168,25 @@ export class CoursesService {
         }
 
         const lessonIds = course.lessons.map((l) => l.id);
-        const [statsByLesson, courseStats] = await Promise.all([
+        const wordIds = course.lessons.flatMap((l) => l.words.map((w) => w.id));
+        const [statsByLesson, courseStats, progressByWord] = await Promise.all([
             this.wordProgressService.getProgressStatsMapByLessonIds(
                 userLoginId,
                 lessonIds,
             ),
             this.wordProgressService.getProgressStats(userLoginId, courseId),
+            this.wordProgressService.getProgressMapByWordIds(
+                userLoginId,
+                wordIds,
+            ),
         ]);
 
         const lessonsWithStats = course.lessons.map((lesson) => ({
             ...lesson,
+            words: lesson.words.map((word) => ({
+                ...word,
+                wordProgress: progressByWord.get(word.id) ?? null,
+            })),
             wordProgressStats:
                 statsByLesson.get(lesson.id) ?? this.emptyWordProgressStats(),
         }));

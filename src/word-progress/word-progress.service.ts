@@ -655,6 +655,34 @@ export class WordProgressService {
     }
 
     /**
+     * Get progress for multiple words by word IDs.
+     * Returns a map of wordId -> WordProgressResponseDto (null if no progress).
+     */
+    async getProgressMapByWordIds(
+        userLoginId: string,
+        wordIds: string[],
+    ): Promise<Map<string, WordProgressResponseDto | null>> {
+        if (wordIds.length === 0) {
+            return new Map();
+        }
+        const progressList = await this.prisma.wordProgress.findMany({
+            where: {
+                userLoginId,
+                wordId: { in: wordIds },
+            },
+        });
+        const result = new Map<string, WordProgressResponseDto | null>();
+        for (const wordId of wordIds) {
+            const progress = progressList.find((p) => p.wordId === wordId);
+            result.set(
+                wordId,
+                progress ? this.mapToProgressResponse(progress) : null,
+            );
+        }
+        return result;
+    }
+
+    /**
      * Reset progress for a specific word
      */
     async resetProgress(userLoginId: string, wordId: string): Promise<void> {
