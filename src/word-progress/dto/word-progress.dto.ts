@@ -193,6 +193,19 @@ export class DueWordDto extends WordProgressResponseDto {
     isNew: boolean;
 }
 
+export class DueWordIdsResponseDto {
+    @ApiProperty({
+        description:
+            'List of word IDs that are due for review (same order as due-words API)',
+        type: [String],
+        example: [
+            '01936b3e-7c8f-7890-abcd-ef1234567890',
+            '01936b3e-7c8f-7890-abcd-ef1234567891',
+        ],
+    })
+    wordIds: string[];
+}
+
 export class WordProgressStatsDto {
     @ApiProperty({
         description: 'Total words in learning',

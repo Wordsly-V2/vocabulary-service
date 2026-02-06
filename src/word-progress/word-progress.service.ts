@@ -313,6 +313,17 @@ export class WordProgressService {
     }
 
     /**
+     * Get IDs of words that are due for review (same logic as getDueWords, returns word IDs only)
+     */
+    async getDueWordIds(
+        userLoginId: string,
+        query: GetDueWordsQueryDto,
+    ): Promise<string[]> {
+        const dueWords = await this.getDueWords(userLoginId, query);
+        return dueWords.map((dw) => dw.word.id);
+    }
+
+    /**
      * Get due words for review with pagination
      */
     async getDueWordsPaginated(
