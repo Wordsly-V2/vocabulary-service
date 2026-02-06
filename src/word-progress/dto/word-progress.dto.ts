@@ -257,3 +257,99 @@ export class WordProgressStatsQueryDto {
     @IsUUID()
     lessonId?: string;
 }
+
+export class GetDueWordsPaginatedQueryDto {
+    @ApiPropertyOptional({
+        description: 'Filter by specific course ID',
+        example: '01936b3e-7c8f-7890-abcd-ef1234567890',
+    })
+    @IsOptional()
+    @IsUUID()
+    courseId?: string;
+
+    @ApiPropertyOptional({
+        description: 'Filter by specific lesson ID',
+        example: '01936b3e-7c8f-7890-abcd-ef1234567890',
+    })
+    @IsOptional()
+    @IsUUID()
+    lessonId?: string;
+
+    @ApiPropertyOptional({
+        description: 'Page number',
+        example: 1,
+        default: 1,
+        minimum: 1,
+    })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    page?: number = 1;
+
+    @ApiPropertyOptional({
+        description: 'Number of items per page',
+        example: 20,
+        default: 20,
+        minimum: 1,
+        maximum: 100,
+    })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    @Max(100)
+    limit?: number = 20;
+
+    @ApiPropertyOptional({
+        description: 'Include new words (not yet reviewed)',
+        example: true,
+        default: true,
+    })
+    @IsOptional()
+    @Transform(({ value }) => {
+        if (value === 'true' || value === true) return true;
+        if (value === 'false' || value === false) return false;
+        return true;
+    })
+    @IsBoolean()
+    includeNew?: boolean = true;
+}
+
+export class PaginatedDueWordsResponseDto {
+    @ApiProperty({
+        description: 'Array of due words',
+        type: [DueWordDto],
+    })
+    items: DueWordDto[];
+
+    @ApiProperty({
+        description: 'Total number of due words',
+        example: 45,
+    })
+    totalItems: number;
+
+    @ApiProperty({
+        description: 'Current page number',
+        example: 1,
+    })
+    currentPage: number;
+
+    @ApiProperty({
+        description: 'Number of items per page',
+        example: 20,
+    })
+    limit: number;
+
+    @ApiProperty({
+        description: 'Total number of pages',
+        example: 3,
+    })
+    totalPages: number;
+
+    @ApiProperty({
+        description: 'Number of items in current page',
+        example: 20,
+    })
+    currentPageItems: number;
+}

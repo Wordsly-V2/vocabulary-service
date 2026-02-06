@@ -5,7 +5,9 @@ import { v7 as uuidv7 } from 'uuid';
 import {
     AnswerQuality,
     DueWordDto,
+    GetDueWordsPaginatedQueryDto,
     GetDueWordsQueryDto,
+    PaginatedDueWordsResponseDto,
     RecordAnswerDto,
     WordProgressResponseDto,
     WordProgressStatsDto,
@@ -308,6 +310,139 @@ export class WordProgressService {
         });
 
         return dueWords.slice(0, limit);
+    }
+
+    /**
+     * Get due words for review with pagination
+     */
+    async getDueWordsPaginated(
+        userLoginId: string,
+        query: GetDueWordsPaginatedQueryDto,
+    ): Promise<PaginatedDueWordsResponseDto> {
+        const {
+            courseId,
+            lessonId,
+            page = 1,
+            limit = 20,
+            includeNew = true,
+        } = query;
+        const now = new Date();
+
+        // Build where clause for words
+        const wordWhere: Prisma.WordWhereInput = {
+            lesson: {
+                course: {
+                    userLoginId,
+                    ...(courseId && { id: courseId }),
+                },
+                ...(lessonId && { id: lessonId }),
+            },
+        };
+
+        // Get words with their progress
+        const words = await this.prisma.word.findMany({
+            where: wordWhere,
+            include: {
+                wordProgress: {
+                    where: {
+                        userLoginId,
+                    },
+                },
+                lesson: {
+                    select: {
+                        id: true,
+                        courseId: true,
+                    },
+                },
+            },
+            orderBy: {
+                word: 'asc',
+            },
+        });
+
+        // Filter words based on due date
+        const allDueWords: DueWordDto[] = [];
+
+        for (const word of words) {
+            const progress = word.wordProgress[0];
+
+            if (!progress) {
+                // New word - not yet reviewed
+                if (includeNew) {
+                    // Create a temporary progress object for new words
+                    const newProgress: WordProgressResponseDto = {
+                        id: '',
+                        wordId: word.id,
+                        userLoginId,
+                        easeFactor: 2.5,
+                        interval: 0,
+                        repetitions: 0,
+                        lastReviewedAt: undefined,
+                        nextReviewAt: now,
+                        totalReviews: 0,
+                        correctReviews: 0,
+                        successRate: 0,
+                    };
+
+                    allDueWords.push({
+                        ...newProgress,
+                        word: {
+                            id: word.id,
+                            word: word.word,
+                            meaning: word.meaning,
+                            pronunciation: word.pronunciation ?? undefined,
+                            partOfSpeech: word.partOfSpeech ?? undefined,
+                            audioUrl: word.audioUrl ?? undefined,
+                            lessonId: word.lessonId,
+                        },
+                        isNew: true,
+                    });
+                }
+            } else if (progress.nextReviewAt <= now) {
+                // Due for review
+                const progressResponse = this.mapToProgressResponse(progress);
+                allDueWords.push({
+                    ...progressResponse,
+                    word: {
+                        id: word.id,
+                        word: word.word,
+                        meaning: word.meaning,
+                        pronunciation: word.pronunciation ?? undefined,
+                        partOfSpeech: word.partOfSpeech ?? undefined,
+                        audioUrl: word.audioUrl ?? undefined,
+                        lessonId: word.lessonId,
+                    },
+                    isNew: false,
+                });
+            }
+        }
+
+        // Sort: prioritize overdue words, then new words
+        allDueWords.sort((a, b) => {
+            // Both are old words - sort by how overdue they are
+            if (!a.isNew && !b.isNew) {
+                return a.nextReviewAt.getTime() - b.nextReviewAt.getTime();
+            }
+            // New words come after due words
+            if (a.isNew && !b.isNew) return 1;
+            if (!a.isNew && b.isNew) return -1;
+            return 0;
+        });
+
+        // Calculate pagination
+        const totalDueWords = allDueWords.length;
+        const totalPages = Math.ceil(totalDueWords / limit);
+        const skip = (page - 1) * limit;
+        const items = allDueWords.slice(skip, skip + limit);
+
+        return {
+            items,
+            totalItems: totalDueWords,
+            currentPage: page,
+            limit,
+            totalPages,
+            currentPageItems: items.length,
+        };
     }
 
     /**
