@@ -20,7 +20,6 @@ import {
 } from '@nestjs/swagger';
 import {
     BulkRecordAnswersDto,
-    DueWordDto,
     DueWordIdsResponseDto,
     GetDueWordsQueryDto,
     RecordAnswerDto,
@@ -89,55 +88,11 @@ export class WordProgressController {
         );
     }
 
-    @Get('due-words')
-    @ApiOperation({
-        summary: 'Get words due for review',
-        description:
-            'Retrieves words that are due for review based on spaced repetition algorithm. Returns a mix of overdue words and new words.',
-    })
-    @ApiQuery({
-        name: 'courseId',
-        required: false,
-        type: String,
-        description: 'Filter by specific course',
-    })
-    @ApiQuery({
-        name: 'lessonId',
-        required: false,
-        type: String,
-        description: 'Filter by specific lesson',
-    })
-    @ApiQuery({
-        name: 'limit',
-        required: false,
-        type: Number,
-        description: 'Maximum number of words to return (1-100)',
-        example: 20,
-    })
-    @ApiQuery({
-        name: 'includeNew',
-        required: false,
-        type: Boolean,
-        description: 'Include new words not yet reviewed',
-        example: true,
-    })
-    @ApiResponse({
-        status: 200,
-        description: 'Due words retrieved successfully',
-        type: [DueWordDto],
-    })
-    async getDueWords(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
-        @Query() query: GetDueWordsQueryDto,
-    ): Promise<DueWordDto[]> {
-        return this.wordProgressService.getDueWords(userLoginId, query);
-    }
-
     @Get('due-word-ids')
     @ApiOperation({
         summary: 'Get IDs of words due for review',
         description:
-            'Same as due-words but returns only a list of word IDs. Uses the same filters (courseId, lessonId, limit, includeNew) and ordering.',
+            'Returns word IDs that are due for review (spaced repetition). Due words first (by nextReviewAt desc), then new words. Same filters: courseId, lessonId, limit, includeNew.',
     })
     @ApiQuery({
         name: 'courseId',

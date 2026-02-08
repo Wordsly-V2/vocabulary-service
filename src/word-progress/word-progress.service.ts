@@ -1,10 +1,9 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, Word, WordProgress } from '@prisma/client';
+import { Prisma, WordProgress } from '@prisma/client';
 import { v7 as uuidv7 } from 'uuid';
 import {
     AnswerQuality,
-    DueWordDto,
     GetDueWordsQueryDto,
     RecordAnswerDto,
     WordProgressResponseDto,
@@ -194,77 +193,8 @@ export class WordProgressService {
     }
 
     /**
-     * Get words that are due for review based on spaced repetition algorithm.
-     * Uses WordProgress-first queries so only due + new words are loaded (bounded by limit).
-     */
-    async getDueWords(
-        userLoginId: string,
-        query: GetDueWordsQueryDto,
-    ): Promise<DueWordDto[]> {
-        const { courseId, lessonId, limit = 20, includeNew = true } = query;
-        const now = new Date();
-
-        const wordScope = {
-            lesson: {
-                course: {
-                    userLoginId,
-                    ...(courseId && { id: courseId }),
-                },
-                ...(lessonId && { id: lessonId }),
-            },
-        } satisfies Prisma.WordWhereInput;
-
-        // 1. Due words: query WordProgress (uses index userLoginId + nextReviewAt), take up to limit
-        const dueProgressList = await this.prisma.wordProgress.findMany({
-            where: {
-                userLoginId,
-                nextReviewAt: { lte: now },
-                word: wordScope,
-            },
-            include: {
-                word: {
-                    include: {
-                        lesson: {
-                            select: { id: true, courseId: true },
-                        },
-                    },
-                },
-            },
-            orderBy: { nextReviewAt: 'desc' },
-            take: limit,
-        });
-
-        const dueWords: DueWordDto[] = dueProgressList.map((wp) =>
-            this.toDueWordDto(wp.word, wp, userLoginId),
-        );
-
-        // 2. If we need more and includeNew, fetch new words (no progress for this user)
-        if (includeNew && dueWords.length < limit) {
-            const newTake = limit - dueWords.length;
-            const newWords = await this.prisma.word.findMany({
-                where: {
-                    ...wordScope,
-                    wordProgress: {
-                        none: { userLoginId },
-                    },
-                },
-                include: {
-                    lesson: { select: { id: true, courseId: true } },
-                },
-                orderBy: [{ lesson: { orderIndex: 'asc' } }, { word: 'asc' }],
-                take: newTake,
-            });
-            for (const word of newWords) {
-                dueWords.push(this.toDueWordDto(word, null, userLoginId));
-            }
-        }
-
-        return dueWords;
-    }
-
-    /**
      * Get IDs of words that are due for review. Fetches only IDs (no word/progress payloads).
-     * Same ordering as getDueWords: due by nextReviewAt desc, then new by lesson order + word.
+     * Order: due by nextReviewAt desc, then new by lesson order + word.
      */
     async getDueWordIds(
         userLoginId: string,
@@ -581,47 +511,6 @@ export class WordProgressService {
                 userLoginId,
             },
         });
-    }
-
-    /**
-     * Build DueWordDto from word and optional progress (no progress = new word).
-     */
-    private toDueWordDto(
-        word: Word & { lesson?: { id: string; courseId: string } },
-        progress: WordProgress | null,
-        userLoginId: string,
-    ): DueWordDto {
-        const wordPayload = {
-            id: word.id,
-            word: word.word,
-            meaning: word.meaning,
-            pronunciation: word.pronunciation ?? undefined,
-            partOfSpeech: word.partOfSpeech ?? undefined,
-            audioUrl: word.audioUrl ?? undefined,
-            lessonId: word.lessonId,
-        };
-        if (!progress) {
-            return {
-                id: '',
-                wordId: word.id,
-                userLoginId,
-                easeFactor: 2.5,
-                interval: 0,
-                repetitions: 0,
-                lastReviewedAt: undefined,
-                nextReviewAt: new Date(),
-                totalReviews: 0,
-                correctReviews: 0,
-                successRate: 0,
-                word: wordPayload,
-                isNew: true,
-            };
-        }
-        return {
-            ...this.mapToProgressResponse(progress),
-            word: wordPayload,
-            isNew: false,
-        };
     }
 
     /**
