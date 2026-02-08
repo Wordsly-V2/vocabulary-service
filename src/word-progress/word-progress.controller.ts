@@ -22,9 +22,7 @@ import {
     BulkRecordAnswersDto,
     DueWordDto,
     DueWordIdsResponseDto,
-    GetDueWordsPaginatedQueryDto,
     GetDueWordsQueryDto,
-    PaginatedDueWordsResponseDto,
     RecordAnswerDto,
     WordProgressResponseDto,
     WordProgressStatsDto,
@@ -181,60 +179,6 @@ export class WordProgressController {
             query,
         );
         return { wordIds };
-    }
-
-    @Get('due-words-paginated')
-    @ApiOperation({
-        summary: 'Get words due for review with pagination',
-        description:
-            'Retrieves words that are due for review based on spaced repetition algorithm with pagination support. Returns total count of due words and paginated results.',
-    })
-    @ApiQuery({
-        name: 'courseId',
-        required: false,
-        type: String,
-        description: 'Filter by specific course',
-    })
-    @ApiQuery({
-        name: 'lessonId',
-        required: false,
-        type: String,
-        description: 'Filter by specific lesson',
-    })
-    @ApiQuery({
-        name: 'page',
-        required: false,
-        type: Number,
-        description: 'Page number (starting from 1)',
-        example: 1,
-    })
-    @ApiQuery({
-        name: 'limit',
-        required: false,
-        type: Number,
-        description: 'Number of items per page (1-100)',
-        example: 20,
-    })
-    @ApiQuery({
-        name: 'includeNew',
-        required: false,
-        type: Boolean,
-        description: 'Include new words not yet reviewed',
-        example: true,
-    })
-    @ApiResponse({
-        status: 200,
-        description: 'Paginated due words retrieved successfully',
-        type: PaginatedDueWordsResponseDto,
-    })
-    async getDueWordsPaginated(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
-        @Query() query: GetDueWordsPaginatedQueryDto,
-    ): Promise<PaginatedDueWordsResponseDto> {
-        return this.wordProgressService.getDueWordsPaginated(
-            userLoginId,
-            query,
-        );
     }
 
     @Get('stats')

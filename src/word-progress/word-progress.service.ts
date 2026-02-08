@@ -1,13 +1,11 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, WordProgress } from '@prisma/client';
+import { Prisma, Word, WordProgress } from '@prisma/client';
 import { v7 as uuidv7 } from 'uuid';
 import {
     AnswerQuality,
     DueWordDto,
-    GetDueWordsPaginatedQueryDto,
     GetDueWordsQueryDto,
-    PaginatedDueWordsResponseDto,
     RecordAnswerDto,
     WordProgressResponseDto,
     WordProgressStatsDto,
@@ -196,7 +194,8 @@ export class WordProgressService {
     }
 
     /**
-     * Get words that are due for review based on spaced repetition algorithm
+     * Get words that are due for review based on spaced repetition algorithm.
+     * Uses WordProgress-first queries so only due + new words are loaded (bounded by limit).
      */
     async getDueWords(
         userLoginId: string,
@@ -205,137 +204,7 @@ export class WordProgressService {
         const { courseId, lessonId, limit = 20, includeNew = true } = query;
         const now = new Date();
 
-        // Get words with their progress
-        const words = await this.prisma.word.findMany({
-            where: {
-                lesson: {
-                    course: {
-                        userLoginId,
-                        ...(courseId && { id: courseId }),
-                    },
-                    ...(lessonId && { id: lessonId }),
-                },
-            },
-            include: {
-                wordProgress: {
-                    where: {
-                        userLoginId,
-                    },
-                },
-                lesson: {
-                    select: {
-                        id: true,
-                        courseId: true,
-                    },
-                },
-            },
-            orderBy: [{ lesson: { orderIndex: 'asc' } }, { word: 'asc' }],
-        });
-
-        // Filter and sort words based on due date
-        const dueWords: DueWordDto[] = [];
-
-        for (const word of words) {
-            const progress = word.wordProgress[0];
-
-            if (!progress) {
-                // New word - not yet reviewed
-                if (includeNew && dueWords.length < limit) {
-                    // Create a temporary progress object for new words
-                    const newProgress: WordProgressResponseDto = {
-                        id: '',
-                        wordId: word.id,
-                        userLoginId,
-                        easeFactor: 2.5,
-                        interval: 0,
-                        repetitions: 0,
-                        lastReviewedAt: undefined,
-                        nextReviewAt: now,
-                        totalReviews: 0,
-                        correctReviews: 0,
-                        successRate: 0,
-                    };
-
-                    dueWords.push({
-                        ...newProgress,
-                        word: {
-                            id: word.id,
-                            word: word.word,
-                            meaning: word.meaning,
-                            pronunciation: word.pronunciation ?? undefined,
-                            partOfSpeech: word.partOfSpeech ?? undefined,
-                            audioUrl: word.audioUrl ?? undefined,
-                            lessonId: word.lessonId,
-                        },
-                        isNew: true,
-                    });
-                }
-            } else if (
-                progress.nextReviewAt <= now &&
-                dueWords.length < limit
-            ) {
-                // Due for review
-                const progressResponse = this.mapToProgressResponse(progress);
-                dueWords.push({
-                    ...progressResponse,
-                    word: {
-                        id: word.id,
-                        word: word.word,
-                        meaning: word.meaning,
-                        pronunciation: word.pronunciation ?? undefined,
-                        partOfSpeech: word.partOfSpeech ?? undefined,
-                        audioUrl: word.audioUrl ?? undefined,
-                        lessonId: word.lessonId,
-                    },
-                    isNew: false,
-                });
-            }
-        }
-
-        // Sort: prioritize overdue words, then new words
-        dueWords.sort((a, b) => {
-            // Both are old words - sort by how overdue they are
-            if (!a.isNew && !b.isNew) {
-                return a.nextReviewAt.getTime() - b.nextReviewAt.getTime();
-            }
-            // New words come after due words
-            if (a.isNew && !b.isNew) return 1;
-            if (!a.isNew && b.isNew) return -1;
-            return 0;
-        });
-
-        return dueWords.slice(0, limit);
-    }
-
-    /**
-     * Get IDs of words that are due for review (same logic as getDueWords, returns word IDs only)
-     */
-    async getDueWordIds(
-        userLoginId: string,
-        query: GetDueWordsQueryDto,
-    ): Promise<string[]> {
-        const dueWords = await this.getDueWords(userLoginId, query);
-        return dueWords.map((dw) => dw.word.id);
-    }
-
-    /**
-     * Get due words for review with pagination
-     */
-    async getDueWordsPaginated(
-        userLoginId: string,
-        query: GetDueWordsPaginatedQueryDto,
-    ): Promise<PaginatedDueWordsResponseDto> {
-        const {
-            courseId,
-            lessonId,
-            page = 1,
-            limit = 20,
-            includeNew = true,
-        } = query;
-        const now = new Date();
-
-        // Build where clause for words
-        const wordWhere: Prisma.WordWhereInput = {
+        const wordScope = {
             lesson: {
                 course: {
                     userLoginId,
@@ -343,112 +212,110 @@ export class WordProgressService {
                 },
                 ...(lessonId && { id: lessonId }),
             },
-        };
+        } satisfies Prisma.WordWhereInput;
 
-        // Get words with their progress
-        const words = await this.prisma.word.findMany({
-            where: wordWhere,
+        // 1. Due words: query WordProgress (uses index userLoginId + nextReviewAt), take up to limit
+        const dueProgressList = await this.prisma.wordProgress.findMany({
+            where: {
+                userLoginId,
+                nextReviewAt: { lte: now },
+                word: wordScope,
+            },
             include: {
-                wordProgress: {
-                    where: {
-                        userLoginId,
-                    },
-                },
-                lesson: {
-                    select: {
-                        id: true,
-                        courseId: true,
+                word: {
+                    include: {
+                        lesson: {
+                            select: { id: true, courseId: true },
+                        },
                     },
                 },
             },
-            orderBy: {
-                word: 'asc',
-            },
+            orderBy: { nextReviewAt: 'desc' },
+            take: limit,
         });
 
-        // Filter words based on due date
-        const allDueWords: DueWordDto[] = [];
+        const dueWords: DueWordDto[] = dueProgressList.map((wp) =>
+            this.toDueWordDto(wp.word, wp, userLoginId),
+        );
 
-        for (const word of words) {
-            const progress = word.wordProgress[0];
-
-            if (!progress) {
-                // New word - not yet reviewed
-                if (includeNew) {
-                    // Create a temporary progress object for new words
-                    const newProgress: WordProgressResponseDto = {
-                        id: '',
-                        wordId: word.id,
-                        userLoginId,
-                        easeFactor: 2.5,
-                        interval: 0,
-                        repetitions: 0,
-                        lastReviewedAt: undefined,
-                        nextReviewAt: now,
-                        totalReviews: 0,
-                        correctReviews: 0,
-                        successRate: 0,
-                    };
-
-                    allDueWords.push({
-                        ...newProgress,
-                        word: {
-                            id: word.id,
-                            word: word.word,
-                            meaning: word.meaning,
-                            pronunciation: word.pronunciation ?? undefined,
-                            partOfSpeech: word.partOfSpeech ?? undefined,
-                            audioUrl: word.audioUrl ?? undefined,
-                            lessonId: word.lessonId,
-                        },
-                        isNew: true,
-                    });
-                }
-            } else if (progress.nextReviewAt <= now) {
-                // Due for review
-                const progressResponse = this.mapToProgressResponse(progress);
-                allDueWords.push({
-                    ...progressResponse,
-                    word: {
-                        id: word.id,
-                        word: word.word,
-                        meaning: word.meaning,
-                        pronunciation: word.pronunciation ?? undefined,
-                        partOfSpeech: word.partOfSpeech ?? undefined,
-                        audioUrl: word.audioUrl ?? undefined,
-                        lessonId: word.lessonId,
+        // 2. If we need more and includeNew, fetch new words (no progress for this user)
+        if (includeNew && dueWords.length < limit) {
+            const newTake = limit - dueWords.length;
+            const newWords = await this.prisma.word.findMany({
+                where: {
+                    ...wordScope,
+                    wordProgress: {
+                        none: { userLoginId },
                     },
-                    isNew: false,
-                });
+                },
+                include: {
+                    lesson: { select: { id: true, courseId: true } },
+                },
+                orderBy: [{ lesson: { orderIndex: 'asc' } }, { word: 'asc' }],
+                take: newTake,
+            });
+            for (const word of newWords) {
+                dueWords.push(this.toDueWordDto(word, null, userLoginId));
             }
         }
 
-        // Sort: prioritize overdue words, then new words
-        allDueWords.sort((a, b) => {
-            // Both are old words - sort by how overdue they are
-            if (!a.isNew && !b.isNew) {
-                return a.nextReviewAt.getTime() - b.nextReviewAt.getTime();
-            }
-            // New words come after due words
-            if (a.isNew && !b.isNew) return 1;
-            if (!a.isNew && b.isNew) return -1;
-            return 0;
+        return dueWords;
+    }
+
+    /**
+     * Get IDs of words that are due for review. Fetches only IDs (no word/progress payloads).
+     * Same ordering as getDueWords: due by nextReviewAt desc, then new by lesson order + word.
+     */
+    async getDueWordIds(
+        userLoginId: string,
+        query: GetDueWordsQueryDto,
+    ): Promise<string[]> {
+        const { courseId, lessonId, limit = 20, includeNew = true } = query;
+        const now = new Date();
+
+        const wordScope = {
+            lesson: {
+                course: {
+                    userLoginId,
+                    ...(courseId && { id: courseId }),
+                },
+                ...(lessonId && { id: lessonId }),
+            },
+        } satisfies Prisma.WordWhereInput;
+
+        // 1. Due word IDs only: WordProgress select wordId, order by nextReviewAt desc, take limit
+        const dueRows = await this.prisma.wordProgress.findMany({
+            where: {
+                userLoginId,
+                nextReviewAt: { lte: now },
+                word: wordScope,
+            },
+            select: { wordId: true },
+            orderBy: { nextReviewAt: 'desc' },
+            take: limit,
         });
+        const dueIds = dueRows.map((r) => r.wordId);
 
-        // Calculate pagination
-        const totalDueWords = allDueWords.length;
-        const totalPages = Math.ceil(totalDueWords / limit);
-        const skip = (page - 1) * limit;
-        const items = allDueWords.slice(skip, skip + limit);
+        if (!includeNew || dueIds.length >= limit) {
+            return dueIds;
+        }
 
-        return {
-            items,
-            totalItems: totalDueWords,
-            currentPage: page,
-            limit,
-            totalPages,
-            currentPageItems: items.length,
-        };
+        // 2. New word IDs only: Word select id where no progress, order by lesson + word, take remainder
+        const newTake = limit - dueIds.length;
+        const newRows = await this.prisma.word.findMany({
+            where: {
+                ...wordScope,
+                wordProgress: {
+                    none: { userLoginId },
+                },
+            },
+            select: { id: true },
+            orderBy: [{ lesson: { orderIndex: 'asc' } }, { word: 'asc' }],
+            take: newTake,
+        });
+        const newIds = newRows.map((r) => r.id);
+
+        return [...dueIds, ...newIds];
     }
 
     /**
@@ -714,6 +581,47 @@ export class WordProgressService {
                 userLoginId,
             },
         });
+    }
+
+    /**
+     * Build DueWordDto from word and optional progress (no progress = new word).
+     */
+    private toDueWordDto(
+        word: Word & { lesson?: { id: string; courseId: string } },
+        progress: WordProgress | null,
+        userLoginId: string,
+    ): DueWordDto {
+        const wordPayload = {
+            id: word.id,
+            word: word.word,
+            meaning: word.meaning,
+            pronunciation: word.pronunciation ?? undefined,
+            partOfSpeech: word.partOfSpeech ?? undefined,
+            audioUrl: word.audioUrl ?? undefined,
+            lessonId: word.lessonId,
+        };
+        if (!progress) {
+            return {
+                id: '',
+                wordId: word.id,
+                userLoginId,
+                easeFactor: 2.5,
+                interval: 0,
+                repetitions: 0,
+                lastReviewedAt: undefined,
+                nextReviewAt: new Date(),
+                totalReviews: 0,
+                correctReviews: 0,
+                successRate: 0,
+                word: wordPayload,
+                isNew: true,
+            };
+        }
+        return {
+            ...this.mapToProgressResponse(progress),
+            word: wordPayload,
+            isNew: false,
+        };
     }
 
     /**
