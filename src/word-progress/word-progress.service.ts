@@ -81,7 +81,8 @@ export class WordProgressService {
     }
 
     /**
-     * Record an answer for a word and update the spaced repetition schedule
+     * Record an answer for a word and update the spaced repetition schedule.
+     * Uses upsert in a transaction; on unique violation (concurrent create) retries with update.
      */
     async recordAnswer(
         userLoginId: string,
@@ -89,50 +90,43 @@ export class WordProgressService {
     ): Promise<WordProgressResponseDto> {
         const { wordId, quality } = recordAnswerDto;
 
-        // Verify word exists and user has access
         const word = await this.prisma.word.findFirst({
             where: {
                 id: wordId,
                 lesson: {
-                    course: {
-                        userLoginId: userLoginId,
-                    },
+                    course: { userLoginId },
                 },
             },
         });
-
-        if (!word) {
+        if (word == null) {
             throw new NotFoundException('Word not found or access denied');
         }
 
-        // Get or create word progress
-        let wordProgress = await this.prisma.wordProgress.findUnique({
-            where: {
-                wordId_userLoginId: {
-                    wordId,
-                    userLoginId,
-                },
-            },
-        });
-
         const now = new Date();
         const isCorrect = quality >= AnswerQuality.CORRECT_WITH_DIFFICULTY;
+        const where = {
+            wordId_userLoginId: { wordId, userLoginId },
+        } as const;
 
-        if (!wordProgress) {
-            // Create new word progress
-            const { easeFactor, interval, repetitions } =
-                this.calculateNextReview(
-                    quality,
-                    2.5, // Default ease factor
-                    0, // Default interval
-                    0, // Default repetitions
-                );
+        return await this.prisma.$transaction(async (tx) => {
+            const existing = await tx.wordProgress.findUnique({
+                where,
+            });
+            const { easeFactor, interval, repetitions } = existing
+                ? this.calculateNextReview(
+                      quality,
+                      existing.easeFactor,
+                      existing.interval,
+                      existing.repetitions,
+                  )
+                : this.calculateNextReview(quality, 2.5, 0, 0);
 
             const nextReviewAt = new Date(now);
             nextReviewAt.setDate(nextReviewAt.getDate() + interval);
 
-            wordProgress = await this.prisma.wordProgress.create({
-                data: {
+            const wordProgress = await tx.wordProgress.upsert({
+                where,
+                create: {
                     id: uuidv7(),
                     wordId,
                     userLoginId,
@@ -144,35 +138,20 @@ export class WordProgressService {
                     totalReviews: 1,
                     correctReviews: isCorrect ? 1 : 0,
                 },
-            });
-        } else {
-            // Update existing word progress
-            const { easeFactor, interval, repetitions } =
-                this.calculateNextReview(
-                    quality,
-                    wordProgress.easeFactor,
-                    wordProgress.interval,
-                    wordProgress.repetitions,
-                );
-
-            const nextReviewAt = new Date(now);
-            nextReviewAt.setDate(nextReviewAt.getDate() + interval);
-
-            wordProgress = await this.prisma.wordProgress.update({
-                where: { id: wordProgress.id },
-                data: {
+                update: {
                     easeFactor,
                     interval,
                     repetitions,
                     lastReviewedAt: now,
                     nextReviewAt,
                     totalReviews: { increment: 1 },
-                    correctReviews: isCorrect ? { increment: 1 } : undefined,
+                    ...(isCorrect && {
+                        correctReviews: { increment: 1 },
+                    }),
                 },
             });
-        }
-
-        return this.mapToProgressResponse(wordProgress);
+            return this.mapToProgressResponse(wordProgress);
+        });
     }
 
     /**
@@ -182,12 +161,11 @@ export class WordProgressService {
         userLoginId: string,
         answers: RecordAnswerDto[],
     ): Promise<WordProgressResponseDto[]> {
-        const results: WordProgressResponseDto[] = [];
-
-        for (const answer of answers) {
-            const result = await this.recordAnswer(userLoginId, answer);
-            results.push(result);
-        }
+        const results: WordProgressResponseDto[] = await Promise.all(
+            answers.map(async (answer) => {
+                return await this.recordAnswer(userLoginId, answer);
+            }),
+        );
 
         return results;
     }
