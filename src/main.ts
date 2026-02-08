@@ -60,6 +60,9 @@ async function bootstrap() {
             consumer: {
                 groupId: 'vocabulary-service-consumer',
             },
+            run: {
+                autoCommit: false,
+            },
         },
     });
 

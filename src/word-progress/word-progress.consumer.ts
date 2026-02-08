@@ -1,6 +1,12 @@
 import { WORD_PROGRESS_EVENTS } from '@/messaging/constants';
+import { commitCurrentMessage } from '@/messaging/kafka-helpers';
 import { Controller } from '@nestjs/common';
-import { EventPattern, Payload } from '@nestjs/microservices';
+import {
+    Ctx,
+    EventPattern,
+    KafkaContext,
+    Payload,
+} from '@nestjs/microservices';
 import {
     RecordAnswerDto,
     WordProgressResponseDto,
@@ -10,6 +16,7 @@ import { WordProgressService } from './word-progress.service';
 /**
  * Handles Kafka events for word-progress. Delegates to WordProgressService.
  * HTTP endpoints stay in WordProgressController.
+ * Offsets are committed only after successful processing (autoCommit is disabled in main.ts).
  */
 @Controller()
 export class WordProgressConsumer {
@@ -18,7 +25,10 @@ export class WordProgressConsumer {
     @EventPattern(WORD_PROGRESS_EVENTS.RECORD_ANSWER)
     async handleRecordAnswer(
         @Payload() payload: RecordAnswerDto,
+        @Ctx() context: KafkaContext,
     ): Promise<WordProgressResponseDto> {
-        return this.wordProgressService.recordAnswer(payload);
+        const result = await this.wordProgressService.recordAnswer(payload);
+        await commitCurrentMessage(context);
+        return result;
     }
 }
