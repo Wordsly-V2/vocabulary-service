@@ -85,10 +85,9 @@ export class WordProgressService {
      * Uses upsert in a transaction; on unique violation (concurrent create) retries with update.
      */
     async recordAnswer(
-        userLoginId: string,
         recordAnswerDto: RecordAnswerDto,
     ): Promise<WordProgressResponseDto> {
-        const { wordId, quality } = recordAnswerDto;
+        const { wordId, quality, userLoginId } = recordAnswerDto;
 
         const word = await this.prisma.word.findFirst({
             where: {
@@ -152,22 +151,6 @@ export class WordProgressService {
             });
             return this.mapToProgressResponse(wordProgress);
         });
-    }
-
-    /**
-     * Record multiple answers in a single transaction
-     */
-    async recordAnswers(
-        userLoginId: string,
-        answers: RecordAnswerDto[],
-    ): Promise<WordProgressResponseDto[]> {
-        const results: WordProgressResponseDto[] = await Promise.all(
-            answers.map(async (answer) => {
-                return await this.recordAnswer(userLoginId, answer);
-            }),
-        );
-
-        return results;
     }
 
     /**

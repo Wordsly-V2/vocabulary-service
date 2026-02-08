@@ -12,6 +12,11 @@ export class InternalServiceGuard implements CanActivate {
     constructor(private readonly configService: ConfigService) {}
 
     canActivate(context: ExecutionContext): boolean | Promise<boolean> {
+        // Skip guard for non-HTTP context (e.g. Kafka consumer); only HTTP needs the header
+        if (context.getType() !== 'http') {
+            return true;
+        }
+
         const request = context
             .switchToHttp()
             .getRequest<

@@ -10,6 +10,7 @@ import {
     Query,
     UseGuards,
 } from '@nestjs/common';
+import { EventPattern, Payload } from '@nestjs/microservices';
 import {
     ApiBody,
     ApiOperation,
@@ -19,7 +20,6 @@ import {
     ApiTags,
 } from '@nestjs/swagger';
 import {
-    BulkRecordAnswersDto,
     DueWordIdsResponseDto,
     GetDueWordsQueryDto,
     RecordAnswerDto,
@@ -39,6 +39,13 @@ import { WordProgressService } from './word-progress.service';
 @UseGuards(InternalServiceGuard)
 export class WordProgressController {
     constructor(private readonly wordProgressService: WordProgressService) {}
+
+    @EventPattern('word-progress_record-answer')
+    async recordAnswerKafka(
+        @Payload() payload: RecordAnswerDto,
+    ): Promise<WordProgressResponseDto> {
+        return this.wordProgressService.recordAnswer(payload);
+    }
 
     @Post('record-answer')
     @ApiOperation({
@@ -60,32 +67,10 @@ export class WordProgressController {
         @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
         @Body() recordAnswerDto: RecordAnswerDto,
     ): Promise<WordProgressResponseDto> {
-        return this.wordProgressService.recordAnswer(
+        return this.wordProgressService.recordAnswer({
+            ...recordAnswerDto,
             userLoginId,
-            recordAnswerDto,
-        );
-    }
-
-    @Post('record-answers')
-    @ApiOperation({
-        summary: 'Record multiple answers in bulk',
-        description:
-            'Records multiple word answers at once for better performance',
-    })
-    @ApiBody({ type: BulkRecordAnswersDto })
-    @ApiResponse({
-        status: 200,
-        description: 'Answers recorded successfully',
-        type: [WordProgressResponseDto],
-    })
-    async recordAnswers(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
-        @Body() bulkRecordAnswersDto: BulkRecordAnswersDto,
-    ): Promise<WordProgressResponseDto[]> {
-        return this.wordProgressService.recordAnswers(
-            userLoginId,
-            bulkRecordAnswersDto.answers,
-        );
+        });
     }
 
     @Get('due-word-ids')
