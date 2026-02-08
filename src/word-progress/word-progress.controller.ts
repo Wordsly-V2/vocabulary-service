@@ -10,7 +10,6 @@ import {
     Query,
     UseGuards,
 } from '@nestjs/common';
-import { EventPattern, Payload } from '@nestjs/microservices';
 import {
     ApiBody,
     ApiOperation,
@@ -39,13 +38,6 @@ import { WordProgressService } from './word-progress.service';
 @UseGuards(InternalServiceGuard)
 export class WordProgressController {
     constructor(private readonly wordProgressService: WordProgressService) {}
-
-    @EventPattern('word-progress_record-answer')
-    async recordAnswerKafka(
-        @Payload() payload: RecordAnswerDto,
-    ): Promise<WordProgressResponseDto> {
-        return this.wordProgressService.recordAnswer(payload);
-    }
 
     @Post('record-answer')
     @ApiOperation({

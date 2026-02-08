@@ -49,6 +49,13 @@ Always follow these principles:
 - Avoid any types.
 - Use strict typing.
 
+## Kafka / Messaging
+
+- **Event names**: Define event/topic names in one place (e.g. `src/messaging/constants.ts` or per-feature) so producers and consumers stay in sync.
+- **Consumers per feature**: Prefer one consumer per feature (e.g. `word-progress.consumer.ts` in the word-progress module) that handles `@EventPattern` and delegates to the feature service. Keep HTTP in the controller, Kafka in the consumer.
+- **Thin consumers**: Consumers only parse payload, validate (or use DTOs), and call the feature service; no business logic in the consumer.
+- **Config**: Keep Kafka client config in `main.ts` or a small `KafkaModule`; use `ConfigModule` for brokers and SSL.
+
 ## Refactoring
 
 When refactoring:
