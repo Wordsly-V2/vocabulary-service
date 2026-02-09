@@ -234,6 +234,31 @@ export class CourseLessonWordsController {
         );
     }
 
+    @Delete('bulk-delete')
+    @ApiOperation({
+        summary: 'Delete multiple words',
+        description: 'Deletes multiple words from a lesson in bulk',
+    })
+    @ApiBody({ type: BulkDeleteWordsDto })
+    @ApiResponse({
+        status: 200,
+        description: 'Words deleted successfully',
+        type: BulkOperationResponseDto,
+    })
+    async deleteWordsBulk(
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
+        @Body() bulkDeleteWordsDto: BulkDeleteWordsDto,
+    ): Promise<{ count: number }> {
+        return this.wordsService.deleteWordsBulk(
+            userLoginId,
+            courseId,
+            lessonId,
+            bulkDeleteWordsDto.wordIds,
+        );
+    }
+
     @Delete(':wordId')
     @ApiOperation({
         summary: 'Delete a word',
@@ -306,31 +331,6 @@ export class CourseLessonWordsController {
             lessonId,
             wordId,
             moveWordDto.targetLessonId,
-        );
-    }
-
-    @Delete('bulk-delete')
-    @ApiOperation({
-        summary: 'Delete multiple words',
-        description: 'Deletes multiple words from a lesson in bulk',
-    })
-    @ApiBody({ type: BulkDeleteWordsDto })
-    @ApiResponse({
-        status: 200,
-        description: 'Words deleted successfully',
-        type: BulkOperationResponseDto,
-    })
-    async deleteWordsBulk(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
-        @Param('courseId', new ParseUUIDPipe()) courseId: string,
-        @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
-        @Body() bulkDeleteWordsDto: BulkDeleteWordsDto,
-    ): Promise<{ count: number }> {
-        return this.wordsService.deleteWordsBulk(
-            userLoginId,
-            courseId,
-            lessonId,
-            bulkDeleteWordsDto.wordIds,
         );
     }
 }
