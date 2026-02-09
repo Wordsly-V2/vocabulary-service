@@ -1,9 +1,11 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { WordsService } from './words.service';
 import { ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { InternalServiceGuard } from '@/guard/internal-service/internal-service.guard';
 
 @ApiTags('dictionary')
 @Controller('words')
+@UseGuards(InternalServiceGuard)
 export class WordsController {
     constructor(private readonly wordsService: WordsService) {}
 
