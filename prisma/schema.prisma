@@ -52,6 +52,8 @@ model Word {
   pronunciation String?
   partOfSpeech    String?
   audioUrl    String?
+  imageUrl    String?
+  example    String?
 
   lessonId    String  @db.Uuid
   lesson      Lesson  @relation(fields: [lessonId], references: [id])

@@ -1,10 +1,10 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { Pagination } from '@/types/common/pagination.type';
+import type { WordProgressStatsDto } from '@/word-progress/dto/word-progress.dto';
+import { WordProgressService } from '@/word-progress/word-progress.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Course, Word } from '@prisma/client';
 import { v7 as uuidv7 } from 'uuid';
-import type { WordProgressStatsDto } from '@/word-progress/dto/word-progress.dto';
-import { WordProgressService } from '@/word-progress/word-progress.service';
 import {
     CourseResponse,
     CourseWithWordProgressStats,

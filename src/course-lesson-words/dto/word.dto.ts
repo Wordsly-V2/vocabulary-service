@@ -57,6 +57,14 @@ export class CreateWordDto {
     @IsString()
     @IsUrl()
     audioUrl?: string;
+
+    @IsString()
+    @IsOptional()
+    imageUrl?: string;
+
+    @IsString()
+    @IsOptional()
+    example?: string;
 }
 
 export class UpdateWordDto {
@@ -104,6 +112,14 @@ export class UpdateWordDto {
     @IsString()
     @IsUrl()
     audioUrl?: string;
+
+    @IsString()
+    @IsOptional()
+    imageUrl?: string;
+
+    @IsString()
+    @IsOptional()
+    example?: string;
 }
 
 export class BulkCreateWordsDto {

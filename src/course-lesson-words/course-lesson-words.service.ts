@@ -69,6 +69,8 @@ export class CourseLessonWordsService {
                 partOfSpeech: payload.partOfSpeech,
                 audioUrl: payload.audioUrl,
                 lessonId: lessonId,
+                imageUrl: payload.imageUrl,
+                example: payload.example,
             },
         });
     }
