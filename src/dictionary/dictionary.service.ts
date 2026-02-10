@@ -13,7 +13,11 @@ export class DictionaryService {
             url: string;
         }[]
     > {
-        const pronunciation = await dictionary.pronounciation(word);
-        return pronunciation;
+        try {
+            const pronunciation = await dictionary.pronounciation(word);
+            return pronunciation;
+        } catch {
+            return [];
+        }
     }
 }
