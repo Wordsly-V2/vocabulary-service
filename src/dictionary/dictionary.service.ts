@@ -41,20 +41,64 @@ export class DictionaryService {
                 ),
             );
             const entries = response.data ?? [];
-            return this.mapToSearchResults(entries);
+            const words = entries
+                .filter(
+                    (entry) =>
+                        entry.translation.partOfSpeech.partOfSpeechType !==
+                        'sentence',
+                )
+                .map((entry) => entry.entry);
+            const wordsWithExamples = await this.getWordsWithExamples(words);
+
+            const results = this.mapToSearchResults(entries, wordsWithExamples);
+            return results;
         } catch {
             return [];
         }
     }
 
+    private async getWordsWithExamples(
+        words: string[],
+    ): Promise<{ word: string; examples: string[] }[]> {
+        const wordsWithExamples: { word: string; examples: string[] }[] =
+            await Promise.all(
+                words.map(async (word) => {
+                    try {
+                        const meanings = await dictionary.meaning(word);
+                        return {
+                            word: word,
+                            examples: meanings.reduce<string[]>((acc, curr) => {
+                                acc.push(...curr.ex);
+                                return acc;
+                            }, []),
+                        };
+                    } catch {
+                        return {
+                            word: word,
+                            examples: [],
+                        };
+                    }
+                }),
+            );
+
+        return wordsWithExamples;
+    }
+
     private mapToSearchResults(
         entries: LangeekWordEntryDto[],
+        wordsWithExamples: { word: string; examples: string[] }[],
     ): DictionarySearchResultDto[] {
         const results: DictionarySearchResultDto[] = [];
+
         for (const entry of entries) {
             const translations = entry.translations ?? {};
             for (const [partOfSpeech, items] of Object.entries(translations)) {
-                if (!Array.isArray(items) || items.length === 0) continue;
+                if (
+                    partOfSpeech === 'sentence' ||
+                    !Array.isArray(items) ||
+                    items.length === 0
+                )
+                    continue;
 
                 const meanings = items
                     .map((item) =>
@@ -66,14 +110,20 @@ export class DictionaryService {
                     items.find((item) => item.wordPhoto?.photo)?.wordPhoto
                         ?.photo ?? '';
 
+                const examples =
+                    wordsWithExamples.find((word) => word.word === entry.entry)
+                        ?.examples ?? [];
+
                 results.push({
                     word: entry.entry,
                     partOfSpeech,
                     meaning: meanings.join(','),
                     imageUrl,
+                    examples,
                 });
             }
         }
+
         return results;
     }
 }
