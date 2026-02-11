@@ -9,7 +9,7 @@ import type {
 
 // Initialize the Cambridge Dictionary scraper
 const dictionary = new DictionaryScraper();
-export const baseCambridgeUrl = 'https://dictionary.cambridge.org';
+const baseCambridgeUrl = 'https://dictionary.cambridge.org';
 
 @Injectable()
 export class DictionaryService {
@@ -23,7 +23,11 @@ export class DictionaryService {
     > {
         try {
             const pronunciation = await dictionary.pronounciation(word);
-            return pronunciation;
+            const results = pronunciation.map((item) => {
+                item.url = baseCambridgeUrl + item.url;
+                return item;
+            });
+            return results;
         } catch {
             return [];
         }
