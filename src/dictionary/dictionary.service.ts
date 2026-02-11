@@ -68,7 +68,9 @@ export class DictionaryService {
                         return {
                             word: word,
                             examples: meanings.reduce<string[]>((acc, curr) => {
-                                acc.push(...curr.ex);
+                                if (curr.ex.length) {
+                                    acc.push(curr.ex[0]);
+                                }
                                 return acc;
                             }, []),
                         };
@@ -100,11 +102,22 @@ export class DictionaryService {
                 )
                     continue;
 
-                const meanings = items
+                const meaningArr = items
                     .map((item) =>
-                        item.localizedProperties?.translation?.trim(),
+                        item.localizedProperties?.translation
+                            ?.trim()
+                            .replaceAll(',', ', '),
                     )
                     .filter((m): m is string => m != null && m !== '');
+
+                const meaning = [
+                    ...new Set(
+                        meaningArr
+                            .join(',')
+                            .split(',')
+                            .map((s) => s.trim()),
+                    ),
+                ].join(', ');
 
                 const imageUrl =
                     items.find((item) => item.wordPhoto?.photo)?.wordPhoto
@@ -117,7 +130,7 @@ export class DictionaryService {
                 results.push({
                     word: entry.entry,
                     partOfSpeech,
-                    meaning: meanings.join(', '),
+                    meaning,
                     imageUrl,
                     examples,
                 });
