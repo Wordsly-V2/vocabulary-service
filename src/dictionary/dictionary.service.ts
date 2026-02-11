@@ -55,18 +55,21 @@ export class DictionaryService {
             const translations = entry.translations ?? {};
             for (const [partOfSpeech, items] of Object.entries(translations)) {
                 if (!Array.isArray(items) || items.length === 0) continue;
+
                 const meanings = items
                     .map((item) =>
                         item.localizedProperties?.translation?.trim(),
                     )
                     .filter((m): m is string => m != null && m !== '');
+
                 const imageUrl =
                     items.find((item) => item.wordPhoto?.photo)?.wordPhoto
                         ?.photo ?? '';
+
                 results.push({
                     word: entry.entry,
                     partOfSpeech,
-                    meanings,
+                    meaning: meanings.join(','),
                     imageUrl,
                 });
             }
