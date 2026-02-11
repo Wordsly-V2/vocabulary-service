@@ -117,7 +117,7 @@ export class DictionaryService {
                 results.push({
                     word: entry.entry,
                     partOfSpeech,
-                    meaning: meanings.join(','),
+                    meaning: meanings.join(', '),
                     imageUrl,
                     examples,
                 });
