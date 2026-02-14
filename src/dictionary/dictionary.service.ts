@@ -86,6 +86,8 @@ export class DictionaryService {
                     )
                     .filter((m): m is string => m != null && m !== '');
 
+                if (meaningArr.length === 0) continue;
+
                 const meaning = [
                     ...new Set(
                         meaningArr
