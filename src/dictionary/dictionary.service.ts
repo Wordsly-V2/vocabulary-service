@@ -41,54 +41,30 @@ export class DictionaryService {
                 ),
             );
             const entries = response.data ?? [];
-            const words = entries
-                .filter(
-                    (entry) =>
-                        entry.translation.partOfSpeech.partOfSpeechType !==
-                        'sentence',
-                )
-                .map((entry) => entry.entry);
-            const wordsWithExamples = await this.getWordsWithExamples(words);
-
-            const results = this.mapToSearchResults(entries, wordsWithExamples);
-            return results;
+            return this.mapToSearchResults(entries);
         } catch {
             return [];
         }
     }
 
-    private async getWordsWithExamples(
-        words: string[],
-    ): Promise<{ word: string; examples: string[] }[]> {
-        const wordsWithExamples: { word: string; examples: string[] }[] =
-            await Promise.all(
-                words.map(async (word) => {
-                    try {
-                        const meanings = await dictionary.meaning(word);
-                        return {
-                            word: word,
-                            examples: meanings.reduce<string[]>((acc, curr) => {
-                                if (curr.ex.length) {
-                                    acc.push(curr.ex[0]);
-                                }
-                                return acc;
-                            }, []),
-                        };
-                    } catch {
-                        return {
-                            word: word,
-                            examples: [],
-                        };
-                    }
-                }),
-            );
+    async getWordExamples(word: string): Promise<string[]> {
+        try {
+            const meanings = await dictionary.meaning(word);
+            const examples = meanings.reduce<string[]>((acc, curr) => {
+                if (curr.ex.length) {
+                    acc.push(curr.ex[0]);
+                }
+                return acc;
+            }, []);
 
-        return wordsWithExamples;
+            return [...new Set(examples)];
+        } catch {
+            return [];
+        }
     }
 
     private mapToSearchResults(
         entries: LangeekWordEntryDto[],
-        wordsWithExamples: { word: string; examples: string[] }[],
     ): DictionarySearchResultDto[] {
         const results: DictionarySearchResultDto[] = [];
 
@@ -123,16 +99,11 @@ export class DictionaryService {
                     items.find((item) => item.wordPhoto?.photo)?.wordPhoto
                         ?.photo ?? '';
 
-                const examples =
-                    wordsWithExamples.find((word) => word.word === entry.entry)
-                        ?.examples ?? [];
-
                 results.push({
                     word: entry.entry,
                     partOfSpeech,
                     meaning,
                     imageUrl,
-                    examples,
                 });
             }
         }

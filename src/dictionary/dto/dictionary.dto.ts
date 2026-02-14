@@ -16,9 +16,6 @@ export class DictionarySearchResultDto {
         example: 'https://cdn.langeek.co/photo/48239/original/?type=jpeg',
     })
     imageUrl: string;
-
-    @ApiProperty({ type: [String] })
-    examples: string[];
 }
 
 /** Word photo from Langeek API. */

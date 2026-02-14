@@ -59,4 +59,26 @@ export class DictionaryController {
     async searchWords(@Param('word') word: string) {
         return this.dictionaryService.searchWords(word);
     }
+
+    @Get('examples/:word')
+    @ApiOperation({
+        summary: 'Get examples for a word',
+        description: 'Gets examples for a word from the dictionary',
+    })
+    @ApiParam({
+        name: 'word',
+        description: 'Word to get examples for',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Examples retrieved successfully',
+        type: [String],
+    })
+    @ApiResponse({
+        status: 400,
+        description: 'Invalid word format',
+    })
+    async getWordExamples(@Param('word') word: string): Promise<string[]> {
+        return this.dictionaryService.getWordExamples(word);
+    }
 }
