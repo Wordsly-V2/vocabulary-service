@@ -166,7 +166,7 @@ export class CourseLessonWordsController {
     @ApiOperation({
         summary: 'Move multiple words to another lesson',
         description:
-            'Moves multiple words from the current lesson to a target lesson in bulk',
+            'Moves multiple words from the current lesson to a target lesson in bulk. The target lesson can be in the same course or in any other course owned by the user.',
     })
     @ApiBody({ type: BulkMoveWordsDto })
     @ApiResponse({
@@ -296,7 +296,8 @@ export class CourseLessonWordsController {
     @Put(':wordId/move')
     @ApiOperation({
         summary: 'Move a word to another lesson',
-        description: 'Moves a word from the current lesson to a target lesson',
+        description:
+            'Moves a word from the current lesson to a target lesson. The target lesson can be in the same course or in any other course owned by the user.',
     })
     @ApiParam({
         name: 'wordId',

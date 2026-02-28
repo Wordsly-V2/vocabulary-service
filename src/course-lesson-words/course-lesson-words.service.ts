@@ -216,14 +216,14 @@ export class CourseLessonWordsService {
         wordId: string,
         targetLessonId: string,
     ): Promise<Word> {
-        // Verify word exists
+        // Verify word exists in source lesson
         await this.getWordById(userLoginId, courseId, lessonId, wordId);
 
-        // Verify target lesson exists
+        // Verify target lesson exists and belongs to user (any course)
         const targetLesson = await this.prisma.lesson.findUnique({
             where: {
                 id: targetLessonId,
-                course: { userLoginId: userLoginId, id: courseId },
+                course: { userLoginId: userLoginId },
             },
         });
 
@@ -233,7 +233,7 @@ export class CourseLessonWordsService {
 
         await this.assertLessonHasCapacity(
             userLoginId,
-            courseId,
+            targetLesson.courseId,
             targetLessonId,
             1,
         );
@@ -257,11 +257,11 @@ export class CourseLessonWordsService {
         wordIds: string[],
         targetLessonId: string,
     ): Promise<{ count: number }> {
-        // Verify target lesson exists
+        // Verify target lesson exists and belongs to user (any course)
         const targetLesson = await this.prisma.lesson.findUnique({
             where: {
                 id: targetLessonId,
-                course: { userLoginId: userLoginId, id: courseId },
+                course: { userLoginId: userLoginId },
             },
         });
 
@@ -271,7 +271,7 @@ export class CourseLessonWordsService {
 
         await this.assertLessonHasCapacity(
             userLoginId,
-            courseId,
+            targetLesson.courseId,
             targetLessonId,
             wordIds.length,
         );

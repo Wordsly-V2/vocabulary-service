@@ -1,8 +1,17 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
-import { DictionaryService } from './dictionary.service';
-import { DictionarySearchResultDto } from './dto/dictionary.dto';
 import { InternalServiceGuard } from '@/guard/internal-service/internal-service.guard';
+import {
+    Controller,
+    Get,
+    Param,
+    ParseUUIDPipe,
+    UseGuards,
+} from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { DictionaryService } from './dictionary.service';
+import {
+    DictionarySearchResultDto,
+    UserWordSearchResultDto,
+} from './dto/dictionary.dto';
 
 @ApiTags('dictionary')
 @Controller('dictionary')
@@ -80,5 +89,33 @@ export class DictionaryController {
     })
     async getWordExamples(@Param('word') word: string): Promise<string[]> {
         return this.dictionaryService.getWordExamples(word);
+    }
+
+    @Get('users/:userLoginId/words/search/:word')
+    @ApiOperation({
+        summary: 'Search user-created words',
+        description:
+            'Searches words the user created across all their courses. Matches the search term against word and meaning (case-insensitive).',
+    })
+    @ApiParam({
+        name: 'userLoginId',
+        description: 'User identifier',
+        example: '01936c1e-1234-7890-abcd-ef1234567890',
+    })
+    @ApiParam({
+        name: 'word',
+        description: 'Word to search for',
+        example: 'hello',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Matching user-created words',
+        type: [UserWordSearchResultDto],
+    })
+    async searchUserWords(
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('word') word: string,
+    ): Promise<UserWordSearchResultDto[]> {
+        return this.dictionaryService.searchUserWords(userLoginId, word);
     }
 }

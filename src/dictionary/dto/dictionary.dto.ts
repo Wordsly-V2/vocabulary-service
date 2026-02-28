@@ -1,4 +1,59 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+
+/** Result item when searching user-created words across all courses. */
+export class UserWordSearchResultDto {
+    @ApiProperty({ example: '01936c1e-1234-7890-abcd-ef1234567890' })
+    id: string;
+
+    @ApiProperty({ example: 'accumulate' })
+    word: string;
+
+    @ApiProperty({ example: 'tích lũy, thu thập' })
+    meaning: string;
+
+    @ApiPropertyOptional({ example: 'verb', nullable: true })
+    partOfSpeech: string | null;
+
+    @ApiPropertyOptional({ description: 'URL to word image', nullable: true })
+    imageUrl: string | null;
+
+    @ApiProperty({ description: 'Lesson ID' })
+    lessonId: string;
+
+    @ApiProperty({ example: 'Unit 1' })
+    lessonName: string;
+
+    @ApiProperty({ description: 'Course ID' })
+    courseId: string;
+
+    @ApiProperty({ example: 'English 101' })
+    courseName: string;
+}
+
+/** Query for searching user-created words. */
+export class SearchUserWordsQueryDto {
+    @ApiProperty({
+        description: 'Search term (matches word or meaning, case-insensitive)',
+        example: 'hello',
+    })
+    @IsString()
+    q: string;
+
+    @ApiPropertyOptional({
+        description: 'Max number of results (1–100)',
+        default: 50,
+        minimum: 1,
+        maximum: 100,
+    })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    @Max(100)
+    limit?: number;
+}
 
 /** Simplified dictionary search result (public API response). */
 export class DictionarySearchResultDto {
