@@ -244,6 +244,28 @@ export class DictionaryService {
             }
             if (!wordData || typeof wordData !== 'object') return null;
 
+            if (!wordData.wordPhoto) {
+                const translationByPos = (
+                    firstWord.translations as Record<string, unknown>[]
+                ).find(
+                    (translation: Record<string, unknown>) =>
+                        (
+                            translation.partOfSpeech as {
+                                partOfSpeechType?: string;
+                            }
+                        )?.partOfSpeechType === partOfSpeech &&
+                        (translation as { wordPhoto?: { photo?: string } })
+                            .wordPhoto?.photo,
+                );
+                if (translationByPos) {
+                    wordData.wordPhoto = (
+                        translationByPos as {
+                            wordPhoto?: { photo?: string };
+                        }
+                    ).wordPhoto;
+                }
+            }
+
             return this.mapLangeekRawToWordDetails(wordData);
         } catch (err: unknown) {
             const status = (err as { response?: { status?: number } })?.response
@@ -531,11 +553,15 @@ export class DictionaryService {
             await this.prisma.word.update({
                 where: { id: wordId },
                 data: {
-                    meaning: wordDetails.meaning || undefined,
+                    meaning: wordDetails.meaning || match.meaning || undefined,
                     pronunciation: wordDetails.pronunciation || undefined,
-                    partOfSpeech: wordDetails.partOfSpeech || undefined,
+                    partOfSpeech:
+                        wordDetails.partOfSpeech ||
+                        match.partOfSpeech ||
+                        undefined,
                     audioUrl: wordDetails.audioUrl || undefined,
-                    imageUrl: wordDetails.imageUrl || undefined,
+                    imageUrl:
+                        wordDetails.imageUrl || match.imageUrl || undefined,
                     example,
                 },
             });
