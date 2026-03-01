@@ -372,12 +372,7 @@ export class DictionaryService {
                     .filter((m): m is string => m != null && m !== '');
 
                 const meaning = [
-                    ...new Set(
-                        meaningArr
-                            .join(',')
-                            .split(',')
-                            .map((s) => s.trim()),
-                    ),
+                    ...new Set(meaningArr[0].split(',').map((s) => s.trim())),
                 ].join(', ');
 
                 const imageUrl =
