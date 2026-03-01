@@ -9,20 +9,14 @@ import {
     Post,
     UseGuards,
 } from '@nestjs/common';
-import {
-    ApiOperation,
-    ApiParam,
-    ApiQuery,
-    ApiResponse,
-    ApiTags,
-} from '@nestjs/swagger';
-import type { LangeekWordDetailsResult } from './dictionary.service';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { DictionaryService } from './dictionary.service';
 import {
     DictionarySearchResultDto,
     LangeekWordDetailsDto,
     SyncWordsLangeekDto,
     UserWordSearchResultDto,
+    WordPronunciationResponseDto,
 } from './dto/dictionary.dto';
 
 @ApiTags('dictionary')
@@ -46,28 +40,7 @@ export class DictionaryController {
     @ApiResponse({
         status: 200,
         description: 'Pronunciation and IPA data',
-        schema: {
-            type: 'object',
-            properties: {
-                pronunciation: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        properties: {
-                            type: { type: 'string' },
-                            url: { type: 'string' },
-                        },
-                    },
-                },
-                ipas: {
-                    type: 'object',
-                    properties: {
-                        uk: { type: 'string', nullable: true },
-                        us: { type: 'string', nullable: true },
-                    },
-                },
-            },
-        },
+        type: WordPronunciationResponseDto,
     })
     async getWordPronunciation(@Param('word') word: string) {
         return this.dictionaryService.getWordPronunciation(word);
@@ -95,22 +68,22 @@ export class DictionaryController {
         return this.dictionaryService.searchWords(word);
     }
 
-    @Get('word-details/:langeekWordId')
+    @Get('word-details/:langeekWordId/:partOfSpeech')
     @ApiOperation({
         summary: 'Get word details from Langeek dictionary',
         description:
-            'Fetches full word details from dictionary.langeek.co using the word ID from search results. The build ID is obtained by crawling the dictionary site.',
+            'Fetches full word details from dictionary.langeek.co. When partOfSpeech is provided (e.g. adjective, noun, verb), returns the matching sense for words with multiple meanings.',
     })
     @ApiParam({
         name: 'langeekWordId',
         description: 'Langeek word entry ID (from search results)',
         example: 2707,
     })
-    @ApiQuery({
-        name: 'entry',
+    @ApiParam({
+        name: 'partOfSpeech',
         description:
-            'Word text (e.g. from search result), required for the Langeek URL',
-        example: 'admire',
+            'Optional. Part of speech to select (e.g. adjective, noun, verb) when the word has multiple senses.',
+        example: 'adjective',
     })
     @ApiResponse({
         status: 200,
@@ -124,8 +97,12 @@ export class DictionaryController {
     })
     async getLangeekWordDetails(
         @Param('langeekWordId', new ParseIntPipe()) langeekWordId: number,
-    ): Promise<LangeekWordDetailsResult | null> {
-        return this.dictionaryService.getLangeekWordDetails(langeekWordId);
+        @Param('partOfSpeech') partOfSpeech: string,
+    ): Promise<LangeekWordDetailsDto | null> {
+        return this.dictionaryService.getLangeekWordDetails(
+            langeekWordId,
+            partOfSpeech,
+        );
     }
 
     @Get('examples/:word')

@@ -4,21 +4,17 @@ import { DictionaryScraper } from '@perqueza72/cambridge-dictionary-scraper';
 import { firstValueFrom } from 'rxjs';
 import type {
     DictionarySearchResultDto,
+    GetWordsForSyncFiltersResponseDto,
+    IpaEntryDto,
+    LangeekWordDetailsDto,
     LangeekWordEntryDto,
+    ProcessWordSyncResultDto,
+    SyncWordsLangeekDto,
+    UserWordSearchResultDto,
+    WordPronunciationResponseDto,
 } from './dto/dictionary.dto';
 import { PrismaService } from '@/prisma/prisma.service';
 import * as cheerio from 'cheerio';
-
-/** Structured word details extracted from Langeek SSG JSON (matches LangeekWordDetailsDto). */
-export interface LangeekWordDetailsResult {
-    word: string;
-    meaning: string;
-    partOfSpeech: string;
-    pronunciation: string;
-    audioUrl: string;
-    imageUrl: string;
-    examples: string[];
-}
 
 // Initialize the Cambridge Dictionary scraper
 const dictionary = new DictionaryScraper();
@@ -39,22 +35,17 @@ export class DictionaryService {
      * Fetches pronunciation (audio URLs) and IPAs (UK/US) per part of speech.
      * Uses existing DictionaryScraper for pronunciation; fetches Cambridge page for IPA by pos.
      */
-    async getWordPronunciation(word: string): Promise<{
-        pronunciation: { type: string; url: string }[];
-        ipas: { partOfSpeech: string; uk: string | null; us: string | null }[];
-    }> {
-        const emptyIpas: {
-            partOfSpeech: string;
-            uk: string | null;
-            us: string | null;
-        }[] = [];
-        let pronunciation: { type: string; url: string }[] = [];
+    async getWordPronunciation(
+        word: string,
+    ): Promise<WordPronunciationResponseDto> {
+        const emptyIpas: IpaEntryDto[] = [];
+        let pronunciation: WordPronunciationResponseDto['pronunciation'] = [];
         try {
             const pron = await dictionary.pronounciation(word);
-            pronunciation = pron.map((item) => {
-                item.url = baseCambridgeUrl + item.url;
-                return item;
-            });
+            pronunciation = pron.map((item) => ({
+                type: item.type,
+                url: baseCambridgeUrl + item.url,
+            }));
         } catch {
             // keep pronunciation []
         }
@@ -64,7 +55,6 @@ export class DictionaryService {
         if (trimmed) {
             try {
                 const encoded = encodeURIComponent(trimmed);
-                // Dictionary entry page has .pos-header per part of speech with .uk/.us .ipa
                 const url = `${baseCambridgeUrl}/dictionary/english/${encoded}`;
                 const res = await firstValueFrom(
                     this.httpService.get<string>(url, {
@@ -88,14 +78,8 @@ export class DictionaryService {
      * Extracts IPA (UK/US) grouped by part of speech from Cambridge dictionary entry page.
      * Structure: .pr.entry-body__el > .pos-header with .pos.dpos, .uk.dpron-i .ipa, .us.dpron-i .ipa.
      */
-    private extractIpasByPartOfSpeech(
-        $: cheerio.CheerioAPI,
-    ): { partOfSpeech: string; uk: string | null; us: string | null }[] {
-        const results: {
-            partOfSpeech: string;
-            uk: string | null;
-            us: string | null;
-        }[] = [];
+    private extractIpasByPartOfSpeech($: cheerio.CheerioAPI): IpaEntryDto[] {
+        const results: IpaEntryDto[] = [];
         const seen = new Set<string>();
 
         // Dictionary entry: each block is .pr.entry-body__el or .pos-header (one part-of-speech per block)
@@ -139,31 +123,20 @@ export class DictionaryService {
     }
 
     /** Returns distinct entries by (partOfSpeech, uk, us). */
-    private distinctIpas(
-        ipas: { partOfSpeech: string; uk: string | null; us: string | null }[],
-    ) {
+    private distinctIpas(ipas: IpaEntryDto[]): IpaEntryDto[] {
         return Object.values(
             ipas.reduce(
                 (acc, cur) => {
                     const key = cur.partOfSpeech;
-
                     if (!acc[key]) {
                         acc[key] = { ...cur };
                     } else {
                         acc[key].uk ??= cur.uk;
                         acc[key].us ??= cur.us;
                     }
-
                     return acc;
                 },
-                {} as Record<
-                    string,
-                    {
-                        partOfSpeech: string;
-                        uk: string | null;
-                        us: string | null;
-                    }
-                >,
+                {} as Record<string, IpaEntryDto>,
             ),
         );
     }
@@ -215,11 +188,13 @@ export class DictionaryService {
 
     /**
      * Fetches full word details from dictionary.langeek.co using the SSG data endpoint.
-     * Extracts and returns structured data from pageProps.initialState.static.wordEntry.
+     * When partOfSpeech is provided, selects that sense from wordEntry.words[0].partOfSpeechRepresentitives;
+     * otherwise uses the first available sense.
      */
     async getLangeekWordDetails(
         langeekWordId: number,
-    ): Promise<LangeekWordDetailsResult | null> {
+        partOfSpeech: string,
+    ): Promise<LangeekWordDetailsDto | null> {
         try {
             const buildId = await this.getLangeekBuildId();
             const url = `${LANGEEK_DICTIONARY_BASE}/_next/data/${buildId}/en-VI/word/${langeekWordId}.json`;
@@ -230,8 +205,46 @@ export class DictionaryService {
                     },
                 }),
             );
-            const raw = response.data ?? null;
-            return raw ? this.mapLangeekRawToWordDetails(raw) : null;
+            const raw = response.data as Record<string, unknown> | null;
+            if (!raw) return null;
+
+            const pageProps = raw?.pageProps as
+                | Record<string, unknown>
+                | undefined;
+            const initialState = pageProps?.initialState as
+                | Record<string, unknown>
+                | undefined;
+            const staticData = initialState?.static as
+                | Record<string, unknown>
+                | undefined;
+            const entry = staticData?.wordEntry as
+                | Record<string, unknown>
+                | undefined;
+            const words = entry?.words as Record<string, unknown>[] | undefined;
+            const firstWord = words?.[0];
+            if (!firstWord || typeof firstWord !== 'object') return null;
+
+            const reps = firstWord.partOfSpeechRepresentitives as
+                | Record<string, Record<string, unknown>>
+                | undefined;
+            if (!reps || typeof reps !== 'object') return null;
+
+            const posKey = partOfSpeech.trim().toLowerCase();
+            let wordData: Record<string, unknown> | undefined =
+                posKey && reps[posKey] ? reps[posKey] : undefined;
+            if (!wordData && posKey) {
+                const key = Object.keys(reps).find(
+                    (k) => k.toLowerCase() === posKey,
+                );
+                if (key) wordData = reps[key];
+            }
+            if (!wordData && Object.keys(reps).length > 0) {
+                const firstKey = Object.keys(reps)[0];
+                wordData = reps[firstKey];
+            }
+            if (!wordData || typeof wordData !== 'object') return null;
+
+            return this.mapLangeekRawToWordDetails(wordData);
         } catch (err: unknown) {
             const status = (err as { response?: { status?: number } })?.response
                 ?.status;
@@ -245,91 +258,46 @@ export class DictionaryService {
     }
 
     /**
-     * Extracts word details from Langeek SSG JSON. Path: pageProps.initialState.static.wordEntry
+     * Maps a single Langeek word-data object (from partOfSpeechRepresentitives[partOfSpeech])
+     * to our public word-details shape. Uses the structure from the Langeek SSG JSON.
      */
     private mapLangeekRawToWordDetails(
-        data: Record<string, unknown>,
-    ): LangeekWordDetailsResult | null {
-        const pageProps = data?.pageProps as
-            | Record<string, unknown>
+        wordData: Record<string, unknown>,
+    ): LangeekWordDetailsDto | null {
+        const partOfSpeechObj = wordData.partOfSpeech as
+            | { partOfSpeechType?: string }
             | undefined;
-        const initialState = pageProps?.initialState as
-            | Record<string, unknown>
-            | undefined;
-        const staticData = initialState?.static as
-            | Record<string, unknown>
-            | undefined;
-        const wordEntry = staticData?.wordEntry as
-            | Record<string, unknown>
-            | undefined;
-        if (!wordEntry) return null;
-        const words = wordEntry.words as Record<string, unknown>[] | undefined;
-        const firstWord = words?.[0];
-        if (!firstWord || typeof firstWord !== 'object') return null;
-
-        const word = (firstWord.word as string) ?? '';
-        const pronunciation = (firstWord.pronunciation as string) ?? '';
-        const audioUrl = (firstWord.wordVoice as string) ?? '';
-
-        const translations = firstWord.translations as
-            | Record<string, unknown>[]
-            | undefined;
-        const firstTranslation = translations?.[0];
-        const localizedProps = firstTranslation?.localizedProperties as
-            | Record<string, unknown>
-            | undefined;
-        const meaning = (localizedProps?.translation as string) ?? '';
         const partOfSpeech =
-            (firstTranslation?.type as string) ??
-            ((firstTranslation?.partOfSpeech as Record<string, unknown>)
-                ?.partOfSpeechType as string) ??
+            partOfSpeechObj?.partOfSpeechType ??
+            (wordData.type as string) ??
             '';
+        const meaning =
+            (wordData.localizedProperties as { translation?: string })
+                ?.translation ?? '';
+
+        const posIpa = wordData.metadata as
+            | {
+                  nlpAnalyzedData?: {
+                      pronunciationIPA?: string;
+                  };
+              }
+            | undefined;
+
+        const pronunciation = posIpa?.nlpAnalyzedData?.pronunciationIPA ?? '';
+        const wordPhoto = wordData.wordPhoto as { photo?: string } | undefined;
+        const imageUrl = wordPhoto?.photo ?? '';
+        const audioUrl = (wordData.titleVoice as string) ?? '';
+
+        const word = wordData.title as string;
 
         const examples: string[] = [];
-        const simpleExamples = wordEntry.simpleExamples as
-            | Record<string, { words?: string[] }[]>
-            | undefined;
-        if (simpleExamples && typeof simpleExamples === 'object') {
-            for (const arr of Object.values(simpleExamples)) {
-                if (Array.isArray(arr)) {
-                    for (const item of arr) {
-                        if (item?.words?.length) {
-                            const text = item.words.join('').trim();
-                            if (text && !examples.includes(text))
-                                examples.push(text);
-                        }
-                    }
-                }
+        const exArr = wordData.examples as { example?: string }[] | undefined;
+        if (Array.isArray(exArr)) {
+            for (const ex of exArr) {
+                const text = ex?.example?.trim();
+                if (text && !examples.includes(text)) examples.push(text);
             }
         }
-        if (examples.length === 0) {
-            const partOfSpeechReps = firstWord.partOfSpeechRepresentitives as
-                | Record<string, { examples?: { example?: string }[] }>
-                | undefined;
-            if (partOfSpeechReps && typeof partOfSpeechReps === 'object') {
-                for (const posValue of Object.values(partOfSpeechReps)) {
-                    const exArr = posValue?.examples;
-                    if (Array.isArray(exArr)) {
-                        for (const ex of exArr) {
-                            const text = (
-                                ex as { example?: string }
-                            )?.example?.trim();
-                            if (text && !examples.includes(text))
-                                examples.push(text);
-                        }
-                    }
-                }
-            }
-        }
-
-        const imageUrl =
-            (
-                translations?.find(
-                    (item) =>
-                        (item as { wordPhoto?: { photo?: string } })?.wordPhoto
-                            ?.photo,
-                ) as { wordPhoto?: { photo?: string } }
-            )?.wordPhoto?.photo || '';
 
         return {
             word,
@@ -417,19 +385,7 @@ export class DictionaryService {
         userLoginId: string,
         searchTerm: string,
         limit = 10,
-    ): Promise<
-        {
-            id: string;
-            word: string;
-            meaning: string;
-            partOfSpeech: string | null;
-            imageUrl: string | null;
-            lessonId: string;
-            lessonName: string;
-            courseId: string;
-            courseName: string;
-        }[]
-    > {
+    ): Promise<UserWordSearchResultDto[]> {
         if (!searchTerm?.trim()) {
             return [];
         }
@@ -482,17 +438,9 @@ export class DictionaryService {
      * Returns a page of words matching the given filters (cursor-based pagination).
      * Used by the API gateway to produce one Kafka message per word without loading all rows.
      */
-    async getWordsForSyncFilters(filters?: {
-        userId?: string;
-        courseId?: string;
-        lessonId?: string;
-        wordId?: string;
-        cursor?: string;
-        limit?: number;
-    }): Promise<{
-        words: { wordId: string; word: string; partOfSpeech: string | null }[];
-        nextCursor: string | null;
-    }> {
+    async getWordsForSyncFilters(
+        filters?: SyncWordsLangeekDto,
+    ): Promise<GetWordsForSyncFiltersResponseDto> {
         type WordWhere = {
             id?: string;
             lessonId?: string;
@@ -549,9 +497,9 @@ export class DictionaryService {
     async processOneWordSync(
         wordId: string,
         word: string,
-        partOfSpeech: string | null,
-    ): Promise<{ status: 'updated' | 'skipped' | 'error'; reason?: string }> {
-        const partOfSpeechNorm = partOfSpeech?.trim().toLowerCase() ?? '';
+        partOfSpeech: string,
+    ): Promise<ProcessWordSyncResultDto> {
+        const partOfSpeechNorm = partOfSpeech.trim().toLowerCase();
 
         try {
             const searchResults = await this.searchWords(word);
@@ -572,6 +520,7 @@ export class DictionaryService {
 
             const wordDetails = await this.getLangeekWordDetails(
                 match.langeekWordId,
+                partOfSpeech,
             );
             if (!wordDetails) {
                 return { status: 'skipped', reason: 'no_word_details' };

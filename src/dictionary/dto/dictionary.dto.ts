@@ -57,6 +57,71 @@ export class SyncWordsLangeekDto {
     limit?: number;
 }
 
+/** Single pronunciation entry (type + URL). */
+export class PronunciationItemDto {
+    @ApiProperty({ example: 'uk' })
+    type: string;
+
+    @ApiProperty({ description: 'Audio URL' })
+    url: string;
+}
+
+/** IPA (UK/US) for one part of speech. */
+export class IpaEntryDto {
+    @ApiProperty({ example: 'noun' })
+    partOfSpeech: string;
+
+    @ApiPropertyOptional({ nullable: true })
+    uk: string | null;
+
+    @ApiPropertyOptional({ nullable: true })
+    us: string | null;
+}
+
+/** Response for getWordPronunciation. */
+export class WordPronunciationResponseDto {
+    @ApiProperty({ type: [PronunciationItemDto] })
+    pronunciation: PronunciationItemDto[];
+
+    @ApiProperty({ type: [IpaEntryDto] })
+    ipas: IpaEntryDto[];
+}
+
+/** Single word row returned by getWordsForSyncFilters. */
+export class SyncWordItemDto {
+    @ApiProperty()
+    wordId: string;
+
+    @ApiProperty()
+    word: string;
+
+    @ApiPropertyOptional({ nullable: true })
+    partOfSpeech: string | null;
+}
+
+/** Paginated result from getWordsForSyncFilters. */
+export class GetWordsForSyncFiltersResponseDto {
+    @ApiProperty({ type: [SyncWordItemDto] })
+    words: SyncWordItemDto[];
+
+    @ApiPropertyOptional({
+        nullable: true,
+        description: 'Cursor for next page',
+    })
+    nextCursor: string | null;
+}
+
+/** Result of processing one word sync (Langeek lookup + DB update). */
+export class ProcessWordSyncResultDto {
+    @ApiProperty({ enum: ['updated', 'skipped', 'error'] })
+    status: 'updated' | 'skipped' | 'error';
+
+    @ApiPropertyOptional({
+        description: 'Reason when status is skipped or error',
+    })
+    reason?: string;
+}
+
 /** Result item when searching user-created words across all courses. */
 export class UserWordSearchResultDto {
     @ApiProperty({ example: '01936c1e-1234-7890-abcd-ef1234567890' })
@@ -135,6 +200,48 @@ export class DictionarySearchResultDto {
     imageUrl: string;
 }
 
+/**
+ * One translation item from Langeek partOfSpeechRepresentitives (wordEntry.words[0].partOfSpeechRepresentitives[partOfSpeech]).
+ * Matches the object shape returned by the Langeek SSG JSON for a single part-of-speech sense.
+ */
+export class LangeekWordDataDto {
+    @ApiProperty()
+    id: number;
+
+    @ApiPropertyOptional()
+    partOfSpeech?: { partOfSpeechType?: string };
+
+    @ApiPropertyOptional()
+    wordPhoto?: { photo?: string; photoThumbnail?: string };
+
+    @ApiProperty({ description: 'English definition/translation' })
+    translation: string;
+
+    @ApiPropertyOptional()
+    pronunciation?: string;
+
+    @ApiPropertyOptional({
+        type: [Object],
+        description: 'Example items with example and exampleVoice',
+    })
+    examples?: { id?: number; example?: string; exampleVoice?: string }[];
+
+    @ApiPropertyOptional({ description: 'TTS URL for the word' })
+    titleVoice?: string;
+
+    @ApiPropertyOptional({ description: 'TTS URL for the translation' })
+    translationVoice?: string;
+
+    @ApiPropertyOptional({ example: 'adjective_adverb' })
+    type?: string;
+
+    @ApiPropertyOptional()
+    title?: string;
+
+    @ApiPropertyOptional()
+    localizedProperties?: { translation?: string };
+}
+
 /** Structured word details extracted from Langeek SSG JSON (pageProps.initialState.static.wordEntry). Returned by GET word-details. */
 export class LangeekWordDetailsDto {
     @ApiProperty({ example: 'backward compatibility' })
@@ -154,6 +261,12 @@ export class LangeekWordDetailsDto {
         example: 'https://tts.langeek.co/read?text=...',
     })
     audioUrl: string;
+
+    @ApiProperty({
+        description: 'URL to word image, or empty if none',
+        example: 'https://cdn.langeek.co/photo/48239/original/?type=jpeg',
+    })
+    imageUrl: string;
 
     @ApiProperty({
         type: [String],

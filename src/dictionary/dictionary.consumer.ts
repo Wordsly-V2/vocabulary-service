@@ -13,7 +13,7 @@ import { DictionaryService } from './dictionary.service';
 export interface SyncWordLangeekPayload {
     wordId: string;
     word: string;
-    partOfSpeech: string | null;
+    partOfSpeech: string;
 }
 
 /**
@@ -31,7 +31,7 @@ export class DictionaryConsumer {
         const result = await this.dictionaryService.processOneWordSync(
             payload.wordId,
             payload.word,
-            payload.partOfSpeech ?? null,
+            payload.partOfSpeech,
         );
         await commitCurrentMessage(context);
         return result;
