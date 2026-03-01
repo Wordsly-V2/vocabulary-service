@@ -3,13 +3,22 @@ import {
     Controller,
     Get,
     Param,
+    ParseIntPipe,
     ParseUUIDPipe,
     UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+    ApiOperation,
+    ApiParam,
+    ApiQuery,
+    ApiResponse,
+    ApiTags,
+} from '@nestjs/swagger';
+import type { LangeekWordDetailsResult } from './dictionary.service';
 import { DictionaryService } from './dictionary.service';
 import {
     DictionarySearchResultDto,
+    LangeekWordDetailsDto,
     UserWordSearchResultDto,
 } from './dto/dictionary.dto';
 
@@ -48,14 +57,10 @@ export class DictionaryController {
                     },
                 },
                 ipas: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        properties: {
-                            partOfSpeech: { type: 'string' },
-                            uk: { type: 'string', nullable: true },
-                            us: { type: 'string', nullable: true },
-                        },
+                    type: 'object',
+                    properties: {
+                        uk: { type: 'string', nullable: true },
+                        us: { type: 'string', nullable: true },
                     },
                 },
             },
@@ -85,6 +90,39 @@ export class DictionaryController {
     })
     async searchWords(@Param('word') word: string) {
         return this.dictionaryService.searchWords(word);
+    }
+
+    @Get('word-details/:langeekWordId')
+    @ApiOperation({
+        summary: 'Get word details from Langeek dictionary',
+        description:
+            'Fetches full word details from dictionary.langeek.co using the word ID from search results. The build ID is obtained by crawling the dictionary site.',
+    })
+    @ApiParam({
+        name: 'langeekWordId',
+        description: 'Langeek word entry ID (from search results)',
+        example: 2707,
+    })
+    @ApiQuery({
+        name: 'entry',
+        description:
+            'Word text (e.g. from search result), required for the Langeek URL',
+        example: 'admire',
+    })
+    @ApiResponse({
+        status: 200,
+        description:
+            'Structured word details (word, meaning, partOfSpeech, pronunciation, audioUrl, examples)',
+        type: LangeekWordDetailsDto,
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Word details not found',
+    })
+    async getLangeekWordDetails(
+        @Param('langeekWordId', new ParseIntPipe()) langeekWordId: number,
+    ): Promise<LangeekWordDetailsResult | null> {
+        return this.dictionaryService.getLangeekWordDetails(langeekWordId);
     }
 
     @Get('examples/:word')

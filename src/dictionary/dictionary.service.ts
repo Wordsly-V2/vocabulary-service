@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { DictionaryScraper } from '@perqueza72/cambridge-dictionary-scraper';
 import { firstValueFrom } from 'rxjs';
 import type {
@@ -9,9 +9,23 @@ import type {
 import { PrismaService } from '@/prisma/prisma.service';
 import * as cheerio from 'cheerio';
 
+/** Structured word details extracted from Langeek SSG JSON (matches LangeekWordDetailsDto). */
+export interface LangeekWordDetailsResult {
+    word: string;
+    meaning: string;
+    partOfSpeech: string;
+    pronunciation: string;
+    audioUrl: string;
+    examples: string[];
+}
+
 // Initialize the Cambridge Dictionary scraper
 const dictionary = new DictionaryScraper();
 const baseCambridgeUrl = 'https://dictionary.cambridge.org';
+
+const LANGEEK_DICTIONARY_BASE = 'https://dictionary.langeek.co';
+/** Regex to extract Next.js build ID from script src (e.g. /_next/static/W9DFkAUd2V1IVyQySqa5d/_buildManifest.js or /next/static/.../ssgManifest.js) */
+const LANGEEK_BUILD_ID_REGEX = /"buildId":"([^"]+)"/;
 
 @Injectable()
 export class DictionaryService {
@@ -167,6 +181,156 @@ export class DictionaryService {
         }
     }
 
+    /**
+     * Fetches the Next.js build ID from dictionary.langeek.co by loading a page
+     * and extracting it from script src (e.g. /_next/static/W9DFkAUd2V1IVyQySqa5d/_buildManifest.js or .../ssgManifest.js).
+     * Result is cached in memory.
+     */
+    private async getLangeekBuildId(): Promise<string> {
+        const headers = {
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        };
+
+        try {
+            const res = await firstValueFrom(
+                this.httpService.get<string>(LANGEEK_DICTIONARY_BASE, {
+                    headers,
+                    responseType: 'text',
+                    maxRedirects: 5,
+                }),
+            );
+            const match = res.data.match(LANGEEK_BUILD_ID_REGEX);
+            if (match?.[1]) {
+                return match[1];
+            }
+        } catch {
+            // try next URL
+        }
+        throw new Error(
+            'Could not extract Langeek dictionary build ID from page',
+        );
+    }
+
+    /**
+     * Fetches full word details from dictionary.langeek.co using the SSG data endpoint.
+     * Extracts and returns structured data from pageProps.initialState.static.wordEntry.
+     */
+    async getLangeekWordDetails(
+        langeekWordId: number,
+    ): Promise<LangeekWordDetailsResult | null> {
+        try {
+            const buildId = await this.getLangeekBuildId();
+            const url = `${LANGEEK_DICTIONARY_BASE}/_next/data/${buildId}/en-VI/word/${langeekWordId}.json`;
+            const response = await firstValueFrom(
+                this.httpService.get<Record<string, unknown>>(url, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (compatible; Wordsly/1.0)',
+                    },
+                }),
+            );
+            const raw = response.data ?? null;
+            return raw ? this.mapLangeekRawToWordDetails(raw) : null;
+        } catch (err: unknown) {
+            const status = (err as { response?: { status?: number } })?.response
+                ?.status;
+            if (status === 404) {
+                return null;
+            }
+            throw new InternalServerErrorException(
+                'Failed to fetch word details',
+            );
+        }
+    }
+
+    /**
+     * Extracts word details from Langeek SSG JSON. Path: pageProps.initialState.static.wordEntry
+     */
+    private mapLangeekRawToWordDetails(
+        data: Record<string, unknown>,
+    ): LangeekWordDetailsResult | null {
+        const pageProps = data?.pageProps as
+            | Record<string, unknown>
+            | undefined;
+        const initialState = pageProps?.initialState as
+            | Record<string, unknown>
+            | undefined;
+        const staticData = initialState?.static as
+            | Record<string, unknown>
+            | undefined;
+        const wordEntry = staticData?.wordEntry as
+            | Record<string, unknown>
+            | undefined;
+        if (!wordEntry) return null;
+        const words = wordEntry.words as Record<string, unknown>[] | undefined;
+        const firstWord = words?.[0];
+        if (!firstWord || typeof firstWord !== 'object') return null;
+
+        const word = (firstWord.word as string) ?? '';
+        const pronunciation = (firstWord.pronunciation as string) ?? '';
+        const audioUrl = (firstWord.wordVoice as string) ?? '';
+
+        const translations = firstWord.translations as
+            | Record<string, unknown>[]
+            | undefined;
+        const firstTranslation = translations?.[0];
+        const localizedProps = firstTranslation?.localizedProperties as
+            | Record<string, unknown>
+            | undefined;
+        const meaning = (localizedProps?.translation as string) ?? '';
+        const partOfSpeech =
+            (firstTranslation?.type as string) ??
+            ((firstTranslation?.partOfSpeech as Record<string, unknown>)
+                ?.partOfSpeechType as string) ??
+            '';
+
+        const examples: string[] = [];
+        const simpleExamples = wordEntry.simpleExamples as
+            | Record<string, { words?: string[] }[]>
+            | undefined;
+        if (simpleExamples && typeof simpleExamples === 'object') {
+            for (const arr of Object.values(simpleExamples)) {
+                if (Array.isArray(arr)) {
+                    for (const item of arr) {
+                        if (item?.words?.length) {
+                            const text = item.words.join('').trim();
+                            if (text && !examples.includes(text))
+                                examples.push(text);
+                        }
+                    }
+                }
+            }
+        }
+        if (examples.length === 0) {
+            const partOfSpeechReps = firstWord.partOfSpeechRepresentitives as
+                | Record<string, { examples?: { example?: string }[] }>
+                | undefined;
+            if (partOfSpeechReps && typeof partOfSpeechReps === 'object') {
+                for (const posValue of Object.values(partOfSpeechReps)) {
+                    const exArr = posValue?.examples;
+                    if (Array.isArray(exArr)) {
+                        for (const ex of exArr) {
+                            const text = (
+                                ex as { example?: string }
+                            )?.example?.trim();
+                            if (text && !examples.includes(text))
+                                examples.push(text);
+                        }
+                    }
+                }
+            }
+        }
+
+        return {
+            word,
+            meaning,
+            partOfSpeech,
+            pronunciation,
+            audioUrl,
+            examples,
+        };
+    }
+
     async getWordExamples(word: string): Promise<string[]> {
         try {
             const meanings = await dictionary.meaning(word);
@@ -222,6 +386,7 @@ export class DictionaryService {
                         ?.photo ?? '';
 
                 results.push({
+                    langeekWordId: entry.id,
                     word: entry.entry,
                     partOfSpeech,
                     meaning,

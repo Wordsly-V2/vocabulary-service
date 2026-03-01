@@ -57,6 +57,13 @@ export class SearchUserWordsQueryDto {
 
 /** Simplified dictionary search result (public API response). */
 export class DictionarySearchResultDto {
+    @ApiProperty({
+        description:
+            'Langeek word entry ID (from api.langeek.co), used to fetch full word details',
+        example: 2707,
+    })
+    langeekWordId: number;
+
     @ApiProperty({ example: 'accumulate' })
     word: string;
 
@@ -71,6 +78,36 @@ export class DictionarySearchResultDto {
         example: 'https://cdn.langeek.co/photo/48239/original/?type=jpeg',
     })
     imageUrl: string;
+}
+
+/** Structured word details extracted from Langeek SSG JSON (pageProps.initialState.static.wordEntry). Returned by GET word-details. */
+export class LangeekWordDetailsDto {
+    @ApiProperty({ example: 'backward compatibility' })
+    word: string;
+
+    @ApiProperty({ example: 'tương thích ngược' })
+    meaning: string;
+
+    @ApiProperty({ example: 'noun' })
+    partOfSpeech: string;
+
+    @ApiProperty({ example: 'bˈækwɚd kəmpˌæɾɪbˈɪlɪɾi' })
+    pronunciation: string;
+
+    @ApiProperty({
+        description: 'TTS audio URL for the word',
+        example: 'https://tts.langeek.co/read?text=...',
+    })
+    audioUrl: string;
+
+    @ApiProperty({
+        type: [String],
+        description: 'Example sentences in English',
+        example: [
+            'The PlayStation 5 has backward compatibility, so I can still play my PlayStation 4 games on it.',
+        ],
+    })
+    examples: string[];
 }
 
 /** Word photo from Langeek API. */
