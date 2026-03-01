@@ -1,6 +1,61 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+
+/** Optional filters for syncing words with Langeek. All omitted = sync all words. */
+export class SyncWordsLangeekDto {
+    @ApiPropertyOptional({
+        description: 'Filter by user (course owner)',
+        example: '01936c1e-1234-7890-abcd-ef1234567890',
+    })
+    @IsOptional()
+    @IsUUID()
+    userId?: string;
+
+    @ApiPropertyOptional({
+        description: 'Filter by course',
+        example: '01936c1e-5678-7890-abcd-ef1234567890',
+    })
+    @IsOptional()
+    @IsUUID()
+    courseId?: string;
+
+    @ApiPropertyOptional({
+        description: 'Filter by lesson',
+        example: '01936c1e-9abc-7890-abcd-ef1234567890',
+    })
+    @IsOptional()
+    @IsUUID()
+    lessonId?: string;
+
+    @ApiPropertyOptional({
+        description: 'Filter by single word',
+        example: '01936c1e-def0-7890-abcd-ef1234567890',
+    })
+    @IsOptional()
+    @IsUUID()
+    wordId?: string;
+
+    @ApiPropertyOptional({
+        description: 'Cursor for pagination (word id). Omit for first page.',
+    })
+    @IsOptional()
+    @IsUUID()
+    cursor?: string;
+
+    @ApiPropertyOptional({
+        description: 'Page size (1–2000). Default 500.',
+        minimum: 1,
+        maximum: 2000,
+        default: 500,
+    })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    @Max(2000)
+    limit?: number;
+}
 
 /** Result item when searching user-created words across all courses. */
 export class UserWordSearchResultDto {

@@ -16,6 +16,7 @@ export interface LangeekWordDetailsResult {
     partOfSpeech: string;
     pronunciation: string;
     audioUrl: string;
+    imageUrl: string;
     examples: string[];
 }
 
@@ -321,12 +322,22 @@ export class DictionaryService {
             }
         }
 
+        const imageUrl =
+            (
+                translations?.find(
+                    (item) =>
+                        (item as { wordPhoto?: { photo?: string } })?.wordPhoto
+                            ?.photo,
+                ) as { wordPhoto?: { photo?: string } }
+            )?.wordPhoto?.photo || '';
+
         return {
             word,
             meaning,
             partOfSpeech,
             pronunciation,
             audioUrl,
+            imageUrl,
             examples,
         };
     }
@@ -462,5 +473,129 @@ export class DictionaryService {
             courseId: w.lesson.courseId,
             courseName: w.lesson.course.name,
         }));
+    }
+
+    /** Default page size for getWordsForSyncFilters to avoid loading too many rows. */
+    private static readonly SYNC_WORDS_PAGE_SIZE = 500;
+
+    /**
+     * Returns a page of words matching the given filters (cursor-based pagination).
+     * Used by the API gateway to produce one Kafka message per word without loading all rows.
+     */
+    async getWordsForSyncFilters(filters?: {
+        userId?: string;
+        courseId?: string;
+        lessonId?: string;
+        wordId?: string;
+        cursor?: string;
+        limit?: number;
+    }): Promise<{
+        words: { wordId: string; word: string; partOfSpeech: string | null }[];
+        nextCursor: string | null;
+    }> {
+        type WordWhere = {
+            id?: string;
+            lessonId?: string;
+            lesson?: { courseId?: string; course?: { userLoginId?: string } };
+        };
+        const where: WordWhere = {};
+
+        if (filters?.wordId) {
+            where.id = filters.wordId;
+        }
+        if (filters?.lessonId) {
+            where.lessonId = filters.lessonId;
+        }
+        if (filters?.courseId || filters?.userId) {
+            where.lesson = {};
+            if (filters.courseId) {
+                where.lesson.courseId = filters.courseId;
+            }
+            if (filters.userId) {
+                where.lesson.course = { userLoginId: filters.userId };
+            }
+        }
+
+        const pageSize = Math.min(
+            filters?.limit ?? DictionaryService.SYNC_WORDS_PAGE_SIZE,
+            2000,
+        );
+        const take = pageSize + 1;
+
+        const rows = await this.prisma.word.findMany({
+            where: Object.keys(where).length > 0 ? where : undefined,
+            select: { id: true, word: true, partOfSpeech: true },
+            orderBy: { id: 'asc' },
+            cursor: filters?.cursor ? { id: filters.cursor } : undefined,
+            take,
+            skip: filters?.cursor ? 1 : 0,
+        });
+
+        const hasMore = rows.length > pageSize;
+        const words = (hasMore ? rows.slice(0, pageSize) : rows).map((w) => ({
+            wordId: w.id,
+            word: w.word,
+            partOfSpeech: w.partOfSpeech,
+        }));
+        const nextCursor =
+            hasMore && words.length > 0 ? words[words.length - 1].wordId : null;
+
+        return { words, nextCursor };
+    }
+
+    /**
+     * Processes a single word sync (Langeek lookup + DB update). Called by the Kafka consumer.
+     */
+    async processOneWordSync(
+        wordId: string,
+        word: string,
+        partOfSpeech: string | null,
+    ): Promise<{ status: 'updated' | 'skipped' | 'error'; reason?: string }> {
+        const partOfSpeechNorm = partOfSpeech?.trim().toLowerCase() ?? '';
+
+        try {
+            const searchResults = await this.searchWords(word);
+            if (!searchResults.length) {
+                return { status: 'skipped', reason: 'no_search_results' };
+            }
+
+            const match = partOfSpeechNorm
+                ? searchResults.find(
+                      (r) =>
+                          r.partOfSpeech.trim().toLowerCase() ===
+                          partOfSpeechNorm,
+                  )
+                : searchResults[0];
+            if (!match) {
+                return { status: 'skipped', reason: 'no_part_of_speech_match' };
+            }
+
+            const wordDetails = await this.getLangeekWordDetails(
+                match.langeekWordId,
+            );
+            if (!wordDetails) {
+                return { status: 'skipped', reason: 'no_word_details' };
+            }
+
+            const example = wordDetails.examples?.length
+                ? JSON.stringify(wordDetails.examples)
+                : null;
+
+            await this.prisma.word.update({
+                where: { id: wordId },
+                data: {
+                    meaning: wordDetails.meaning,
+                    pronunciation: wordDetails.pronunciation || null,
+                    partOfSpeech: wordDetails.partOfSpeech || null,
+                    audioUrl: wordDetails.audioUrl || null,
+                    imageUrl: wordDetails.imageUrl || null,
+                    example,
+                },
+            });
+            return { status: 'updated' };
+        } catch (err: unknown) {
+            const reason = err instanceof Error ? err.message : String(err);
+            return { status: 'error', reason };
+        }
     }
 }

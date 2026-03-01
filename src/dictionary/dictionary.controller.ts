@@ -1,10 +1,12 @@
 import { InternalServiceGuard } from '@/guard/internal-service/internal-service.guard';
 import {
+    Body,
     Controller,
     Get,
     Param,
     ParseIntPipe,
     ParseUUIDPipe,
+    Post,
     UseGuards,
 } from '@nestjs/common';
 import {
@@ -19,6 +21,7 @@ import { DictionaryService } from './dictionary.service';
 import {
     DictionarySearchResultDto,
     LangeekWordDetailsDto,
+    SyncWordsLangeekDto,
     UserWordSearchResultDto,
 } from './dto/dictionary.dto';
 
@@ -173,5 +176,27 @@ export class DictionaryController {
         @Param('word') word: string,
     ): Promise<UserWordSearchResultDto[]> {
         return this.dictionaryService.searchUserWords(userLoginId, word);
+    }
+
+    @Post('sync-words-langeek/words')
+    @ApiOperation({
+        summary: 'Get words for sync (internal)',
+        description:
+            'Returns the list of words matching the given filters. Used by the API gateway to produce one Kafka message per word; vocabulary-service only consumes and processes.',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'List of words (wordId, word, partOfSpeech) to sync',
+    })
+    async getWordsForSync(@Body() dto: SyncWordsLangeekDto) {
+        const filters = {
+            userId: dto.userId,
+            courseId: dto.courseId,
+            lessonId: dto.lessonId,
+            wordId: dto.wordId,
+            cursor: dto.cursor,
+            limit: dto.limit,
+        };
+        return this.dictionaryService.getWordsForSyncFilters(filters);
     }
 }
