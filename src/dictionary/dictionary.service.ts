@@ -293,9 +293,19 @@ export class DictionaryService {
             partOfSpeechObj?.partOfSpeechType ??
             (wordData.type as string) ??
             '';
-        const meaning =
-            (wordData.localizedProperties as { translation?: string })
-                ?.translation ?? '';
+
+        const localizedProperties = wordData.localizedProperties as
+            | { translation?: string; otherTranslations?: string }
+            | undefined;
+
+        const meaning = [
+            ...new Set(
+                [
+                    localizedProperties?.translation,
+                    localizedProperties?.otherTranslations,
+                ].filter((t): t is string => t != null && t !== ''),
+            ),
+        ].join(', ');
 
         const posIpa = wordData.metadata as
             | {
@@ -372,8 +382,15 @@ export class DictionaryService {
                     .filter((m): m is string => m != null && m !== '');
 
                 const meaning = [
-                    ...new Set(meaningArr[0].split(',').map((s) => s.trim())),
-                ].join(', ');
+                    ...new Set(
+                        meaningArr
+                            .join(',')
+                            .split(',')
+                            .map((s) => s.trim()),
+                    ),
+                ]
+                    .slice(0, 2)
+                    .join(', ');
 
                 const imageUrl =
                     items.find((item) => item.wordPhoto?.photo)?.wordPhoto
