@@ -349,8 +349,6 @@ export class DictionaryService {
                     )
                     .filter((m): m is string => m != null && m !== '');
 
-                if (meaningArr.length === 0) continue;
-
                 const meaning = [
                     ...new Set(
                         meaningArr
@@ -533,11 +531,11 @@ export class DictionaryService {
             await this.prisma.word.update({
                 where: { id: wordId },
                 data: {
-                    meaning: wordDetails.meaning,
-                    pronunciation: wordDetails.pronunciation || null,
-                    partOfSpeech: wordDetails.partOfSpeech || null,
-                    audioUrl: wordDetails.audioUrl || null,
-                    imageUrl: wordDetails.imageUrl || null,
+                    meaning: wordDetails.meaning || undefined,
+                    pronunciation: wordDetails.pronunciation || undefined,
+                    partOfSpeech: wordDetails.partOfSpeech || undefined,
+                    audioUrl: wordDetails.audioUrl || undefined,
+                    imageUrl: wordDetails.imageUrl || undefined,
                     example,
                 },
             });
