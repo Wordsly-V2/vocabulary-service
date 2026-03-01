@@ -1,3 +1,4 @@
+import { CourseLessonWordsService } from '@/course-lesson-words/course-lesson-words.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Pagination } from '@/types/common/pagination.type';
 import type { WordProgressStatsDto } from '@/word-progress/dto/word-progress.dto';
@@ -18,6 +19,7 @@ export class CoursesService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly wordProgressService: WordProgressService,
+        private readonly courseLessonWordsService: CourseLessonWordsService,
     ) {}
 
     async getCoursesTotalStats(
@@ -258,5 +260,33 @@ export class CoursesService {
                 word: 'asc',
             },
         });
+    }
+
+    async deleteWordsBulkFromCourse(
+        userLoginId: string,
+        courseId: string,
+        wordIds: string[],
+    ): Promise<{ count: number }> {
+        await this.getCourseById(userLoginId, courseId);
+        return this.courseLessonWordsService.deleteWordsBulkFromCourse(
+            userLoginId,
+            courseId,
+            wordIds,
+        );
+    }
+
+    async moveWordsBulkFromCourse(
+        userLoginId: string,
+        courseId: string,
+        wordIds: string[],
+        targetLessonId: string,
+    ): Promise<{ count: number }> {
+        await this.getCourseById(userLoginId, courseId);
+        return this.courseLessonWordsService.moveWordsBulkFromCourse(
+            userLoginId,
+            courseId,
+            wordIds,
+            targetLessonId,
+        );
     }
 }

@@ -19,6 +19,7 @@ import {
     ApiTags,
 } from '@nestjs/swagger';
 import {
+    BulkResetProgressDto,
     DueWordIdsResponseDto,
     GetDueWordsQueryDto,
     RecordAnswerDto,
@@ -177,6 +178,28 @@ export class WordProgressController {
         @Param('wordId') wordId: string,
     ): Promise<WordProgressResponseDto | null> {
         return this.wordProgressService.getWordProgress(userLoginId, wordId);
+    }
+
+    @Delete('words/bulk-reset')
+    @ApiOperation({
+        summary: 'Reset progress for multiple words',
+        description:
+            "Deletes learning progress for the given word IDs. Only words in the user's courses are reset.",
+    })
+    @ApiBody({ type: BulkResetProgressDto })
+    @ApiResponse({
+        status: 200,
+        description: 'Progress reset for the given words',
+        schema: { type: 'object', properties: { count: { type: 'number' } } },
+    })
+    async resetProgressBulk(
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Body() body: BulkResetProgressDto,
+    ): Promise<{ count: number }> {
+        return this.wordProgressService.resetProgressBulk(
+            userLoginId,
+            body.wordIds,
+        );
     }
 
     @Delete('words/:wordId/reset')

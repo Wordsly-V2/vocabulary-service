@@ -21,9 +21,9 @@ export class DictionaryController {
 
     @Get('pronunciation/:word')
     @ApiOperation({
-        summary: 'Get pronunciation for a word',
+        summary: 'Get pronunciation and IPA for a word',
         description:
-            'Fetches pronunciation information from dictionary for a given word',
+            'Fetches pronunciation (audio URLs) and UK/US IPA from dictionary for a given word',
     })
     @ApiParam({
         name: 'word',
@@ -33,15 +33,33 @@ export class DictionaryController {
     })
     @ApiResponse({
         status: 200,
-        description: 'Pronunciation data retrieved successfully',
-    })
-    @ApiResponse({
-        status: 400,
-        description: 'Invalid word format',
-    })
-    @ApiResponse({
-        status: 404,
-        description: 'Word not found in dictionary',
+        description: 'Pronunciation and IPA data',
+        schema: {
+            type: 'object',
+            properties: {
+                pronunciation: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            type: { type: 'string' },
+                            url: { type: 'string' },
+                        },
+                    },
+                },
+                ipas: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            partOfSpeech: { type: 'string' },
+                            uk: { type: 'string', nullable: true },
+                            us: { type: 'string', nullable: true },
+                        },
+                    },
+                },
+            },
+        },
     })
     async getWordPronunciation(@Param('word') word: string) {
         return this.dictionaryService.getWordPronunciation(word);

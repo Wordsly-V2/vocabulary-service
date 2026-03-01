@@ -228,6 +228,80 @@ export class CoursesController {
         return { success: true };
     }
 
+    @Delete(':courseId/words/bulk-delete')
+    @ApiOperation({
+        summary: 'Delete multiple words from course (any lessons)',
+        description:
+            'Deletes words by IDs. Words can be from any lesson in the course.',
+    })
+    @ApiParam({ name: 'courseId', description: 'Course ID' })
+    @ApiBody({
+        schema: {
+            type: 'object',
+            required: ['wordIds'],
+            properties: {
+                wordIds: {
+                    type: 'array',
+                    items: { type: 'string', format: 'uuid' },
+                },
+            },
+        },
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Words deleted',
+        schema: { type: 'object', properties: { count: { type: 'number' } } },
+    })
+    async deleteWordsBulkFromCourse(
+        @Param('userLoginId') userLoginId: string,
+        @Param('courseId') courseId: string,
+        @Body() body: { wordIds: string[] },
+    ): Promise<{ count: number }> {
+        return this.coursesService.deleteWordsBulkFromCourse(
+            userLoginId,
+            courseId,
+            body.wordIds ?? [],
+        );
+    }
+
+    @Put(':courseId/words/bulk-move')
+    @ApiOperation({
+        summary: 'Move multiple words to a target lesson (any source lessons)',
+        description:
+            'Moves words by IDs to targetLessonId. Words can be from any lesson in the course.',
+    })
+    @ApiParam({ name: 'courseId', description: 'Course ID' })
+    @ApiBody({
+        schema: {
+            type: 'object',
+            required: ['wordIds', 'targetLessonId'],
+            properties: {
+                wordIds: {
+                    type: 'array',
+                    items: { type: 'string', format: 'uuid' },
+                },
+                targetLessonId: { type: 'string', format: 'uuid' },
+            },
+        },
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Words moved',
+        schema: { type: 'object', properties: { count: { type: 'number' } } },
+    })
+    async moveWordsBulkFromCourse(
+        @Param('userLoginId') userLoginId: string,
+        @Param('courseId') courseId: string,
+        @Body() body: { wordIds: string[]; targetLessonId: string },
+    ): Promise<{ count: number }> {
+        return this.coursesService.moveWordsBulkFromCourse(
+            userLoginId,
+            courseId,
+            body.wordIds ?? [],
+            body.targetLessonId,
+        );
+    }
+
     @Get(':courseId/words')
     @ApiOperation({
         summary: 'Get words by IDs',

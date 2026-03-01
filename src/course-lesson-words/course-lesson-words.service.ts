@@ -108,6 +108,8 @@ export class CourseLessonWordsService {
                 pronunciation: word.pronunciation,
                 partOfSpeech: word.partOfSpeech,
                 audioUrl: word.audioUrl,
+                imageUrl: word.imageUrl,
+                example: word.example,
                 lessonId: lessonId,
             })),
             skipDuplicates: true,
@@ -289,6 +291,63 @@ export class CourseLessonWordsService {
             data: { lessonId: targetLessonId },
         });
 
+        return { count: result.count };
+    }
+
+    /**
+     * Delete multiple words from a course (any lessons). Only deletes words that belong to the course.
+     */
+    async deleteWordsBulkFromCourse(
+        userLoginId: string,
+        courseId: string,
+        wordIds: string[],
+    ): Promise<{ count: number }> {
+        if (wordIds.length === 0) return { count: 0 };
+        const result = await this.prisma.word.deleteMany({
+            where: {
+                id: { in: wordIds },
+                lesson: {
+                    course: { userLoginId, id: courseId },
+                },
+            },
+        });
+        return { count: result.count };
+    }
+
+    /**
+     * Move multiple words from any lessons in the course to a target lesson.
+     */
+    async moveWordsBulkFromCourse(
+        userLoginId: string,
+        courseId: string,
+        wordIds: string[],
+        targetLessonId: string,
+    ): Promise<{ count: number }> {
+        if (wordIds.length === 0) return { count: 0 };
+        const targetLesson = await this.prisma.lesson.findUnique({
+            where: {
+                id: targetLessonId,
+                course: { userLoginId },
+            },
+        });
+        if (!targetLesson) {
+            throw new NotFoundException('Target lesson not found');
+        }
+        await this.assertLessonHasCapacity(
+            userLoginId,
+            targetLesson.courseId,
+            targetLessonId,
+            wordIds.length,
+        );
+        const result = await this.prisma.word.updateMany({
+            where: {
+                id: { in: wordIds },
+                lesson: {
+                    course: { userLoginId, id: courseId },
+                },
+            },
+            data: { lessonId: targetLessonId },
+        });
         return { count: result.count };
     }
 }

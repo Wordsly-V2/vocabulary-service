@@ -475,6 +475,31 @@ export class WordProgressService {
     }
 
     /**
+     * Reset progress for multiple words in one request.
+     * Only resets words that belong to the user's courses; skips invalid IDs.
+     */
+    async resetProgressBulk(
+        userLoginId: string,
+        wordIds: string[],
+    ): Promise<{ count: number }> {
+        if (wordIds.length === 0) {
+            return { count: 0 };
+        }
+        const result = await this.prisma.wordProgress.deleteMany({
+            where: {
+                userLoginId,
+                wordId: { in: wordIds },
+                word: {
+                    lesson: {
+                        course: { userLoginId },
+                    },
+                },
+            },
+        });
+        return { count: result.count };
+    }
+
+    /**
      * Map WordProgress entity to response DTO
      */
     private mapToProgressResponse(

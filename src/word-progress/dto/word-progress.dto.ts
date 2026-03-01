@@ -260,6 +260,20 @@ export class ResetProgressDto {
     wordId: string;
 }
 
+export class BulkResetProgressDto {
+    @ApiProperty({
+        description: 'Array of word IDs to reset progress for',
+        example: [
+            '01936b3e-7c8f-7890-abcd-ef1234567890',
+            '01936b3e-7c8f-7890-abcd-ef1234567891',
+        ],
+        type: [String],
+    })
+    @IsArray()
+    @IsUUID(undefined, { each: true })
+    wordIds: string[];
+}
+
 export class WordProgressStatsQueryDto {
     @ApiPropertyOptional({
         description: 'Filter by specific course ID',
