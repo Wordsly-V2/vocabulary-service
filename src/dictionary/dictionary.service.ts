@@ -192,12 +192,26 @@ export class DictionaryService {
      * otherwise uses the first available sense.
      */
     async getLangeekWordDetails(
-        langeekWordId: number,
+        word: string,
         partOfSpeech: string,
     ): Promise<LangeekWordDetailsDto | null> {
         try {
-            const buildId = await this.getLangeekBuildId();
-            const url = `${LANGEEK_DICTIONARY_BASE}/_next/data/${buildId}/en-VI/word/${langeekWordId}.json`;
+            const partOfSpeechNorm = partOfSpeech.trim().toLowerCase();
+
+            const [searchResults, buildId] = await Promise.all([
+                this.searchWords(word),
+                this.getLangeekBuildId(),
+            ]);
+            if (!searchResults.length) return null;
+
+            const match = searchResults.find(
+                (r) =>
+                    r.partOfSpeech.trim().toLowerCase() === partOfSpeechNorm &&
+                    r.word === word,
+            );
+            if (!match) return null;
+
+            const url = `${LANGEEK_DICTIONARY_BASE}/_next/data/${buildId}/en-VI/word/${match.langeekWordId}.json`;
             const response = await firstValueFrom(
                 this.httpService.get<Record<string, unknown>>(url, {
                     headers: {
@@ -244,29 +258,25 @@ export class DictionaryService {
             }
             if (!wordData || typeof wordData !== 'object') return null;
 
-            if (!wordData.wordPhoto) {
-                const translationByPos = (
-                    firstWord.translations as Record<string, unknown>[]
-                ).find(
-                    (translation: Record<string, unknown>) =>
-                        (
-                            translation.partOfSpeech as {
-                                partOfSpeechType?: string;
-                            }
-                        )?.partOfSpeechType === partOfSpeech &&
-                        (translation as { wordPhoto?: { photo?: string } })
-                            .wordPhoto?.photo,
-                );
-                if (translationByPos) {
-                    wordData.wordPhoto = (
-                        translationByPos as {
-                            wordPhoto?: { photo?: string };
-                        }
-                    ).wordPhoto;
-                }
-            }
+            const examples = (wordData.examples as { example: string }[]).map(
+                (e) => e.example,
+            );
 
-            return this.mapLangeekRawToWordDetails(wordData);
+            const metadata = wordData.metadata as
+                | { extraProperties?: { pos_ipa?: { american?: string } } }
+                | undefined;
+            const pronunciation = metadata?.extraProperties?.pos_ipa
+                ?.american as string;
+
+            return {
+                word,
+                meaning: match.meaning,
+                partOfSpeech: match.partOfSpeech,
+                pronunciation,
+                audioUrl: firstWord.wordVoice as string,
+                imageUrl: match.imageUrl,
+                examples,
+            };
         } catch (err: unknown) {
             const status = (err as { response?: { status?: number } })?.response
                 ?.status;
@@ -373,28 +383,12 @@ export class DictionaryService {
                 )
                     continue;
 
-                const meaningArr = items
-                    .map((item) =>
-                        item.localizedProperties?.translation
-                            ?.trim()
-                            .replaceAll(',', ', '),
-                    )
-                    .filter((m): m is string => m != null && m !== '');
+                const meaning =
+                    items[0].localizedProperties?.translation
+                        ?.trim()
+                        ?.replaceAll(',', ', ') ?? '';
 
-                const meaning = [
-                    ...new Set(
-                        meaningArr
-                            .join(',')
-                            .split(',')
-                            .map((s) => s.trim()),
-                    ),
-                ]
-                    .slice(0, 2)
-                    .join(', ');
-
-                const imageUrl =
-                    items.find((item) => item.wordPhoto?.photo)?.wordPhoto
-                        ?.photo ?? '';
+                const imageUrl = items[0].wordPhoto?.photo ?? '';
 
                 results.push({
                     langeekWordId: entry.id,
@@ -531,27 +525,9 @@ export class DictionaryService {
         word: string,
         partOfSpeech: string,
     ): Promise<ProcessWordSyncResultDto> {
-        const partOfSpeechNorm = partOfSpeech.trim().toLowerCase();
-
         try {
-            const searchResults = await this.searchWords(word);
-            if (!searchResults.length) {
-                return { status: 'skipped', reason: 'no_search_results' };
-            }
-
-            const match = partOfSpeechNorm
-                ? searchResults.find(
-                      (r) =>
-                          r.partOfSpeech.trim().toLowerCase() ===
-                          partOfSpeechNorm,
-                  )
-                : searchResults[0];
-            if (!match) {
-                return { status: 'skipped', reason: 'no_part_of_speech_match' };
-            }
-
             const wordDetails = await this.getLangeekWordDetails(
-                match.langeekWordId,
+                word,
                 partOfSpeech,
             );
             if (!wordDetails) {
@@ -565,15 +541,11 @@ export class DictionaryService {
             await this.prisma.word.update({
                 where: { id: wordId },
                 data: {
-                    meaning: wordDetails.meaning || match.meaning || undefined,
+                    meaning: wordDetails.meaning || undefined,
                     pronunciation: wordDetails.pronunciation || undefined,
-                    partOfSpeech:
-                        wordDetails.partOfSpeech ||
-                        match.partOfSpeech ||
-                        undefined,
+                    partOfSpeech: wordDetails.partOfSpeech || undefined,
                     audioUrl: wordDetails.audioUrl || undefined,
-                    imageUrl:
-                        wordDetails.imageUrl || match.imageUrl || undefined,
+                    imageUrl: wordDetails.imageUrl || undefined,
                     example,
                 },
             });
