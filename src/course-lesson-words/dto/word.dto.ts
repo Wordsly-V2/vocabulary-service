@@ -7,6 +7,7 @@ import {
     IsUrl,
     IsUUID,
     MinLength,
+    ValidateIf,
     ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -50,11 +51,13 @@ export class CreateWordDto {
     partOfSpeech?: string;
 
     @ApiPropertyOptional({
-        description: 'URL to audio pronunciation',
+        description:
+            'URL to audio pronunciation (optional; empty string allowed)',
         example: 'https://example.com/audio/hello.mp3',
     })
     @IsOptional()
     @IsString()
+    @ValidateIf((_, v) => v != null && v !== '')
     @IsUrl()
     audioUrl?: string;
 
@@ -105,11 +108,13 @@ export class UpdateWordDto {
     partOfSpeech?: string;
 
     @ApiPropertyOptional({
-        description: 'URL to audio pronunciation',
+        description:
+            'URL to audio pronunciation (optional; empty string allowed)',
         example: 'https://example.com/audio/hello.mp3',
     })
     @IsOptional()
     @IsString()
+    @ValidateIf((_, v) => v != null && v !== '')
     @IsUrl()
     audioUrl?: string;
 
