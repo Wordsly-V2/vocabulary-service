@@ -23,6 +23,7 @@ import { CourseLessonsService } from './course-lessons.service';
 import {
     CreateLessonDto,
     LessonResponseDto,
+    LessonSummaryDto,
     ReorderLessonsDto,
     UpdateLessonDto,
 } from './dto/lesson.dto';
@@ -104,6 +105,29 @@ export class CourseLessonsController {
             courseId,
             reorderLessonsDto,
         );
+    }
+
+    @Get()
+    @ApiOperation({
+        summary: 'Get lessons by course (lightweight)',
+        description:
+            'Returns list of lessons for a course with word count only, no word details',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Lessons retrieved successfully',
+        type: [LessonSummaryDto],
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Course not found',
+    })
+    getLessonsByCourseId(
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Param('courseId', new ParseUUIDPipe()) courseId: string,
+    ): Promise<Array<Lesson & { wordsCount: number }>> {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call -- service return type resolves from Prisma Lesson + wordsCount
+        return this.lessonsService.getLessonsByCourseId(userLoginId, courseId);
     }
 
     @Get(':lessonId')

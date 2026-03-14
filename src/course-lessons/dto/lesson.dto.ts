@@ -148,3 +148,33 @@ export class LessonResponseDto {
     })
     words?: any[];
 }
+
+/** Lesson summary without word details (for list by course). */
+export class LessonSummaryDto {
+    @ApiProperty({ description: 'Lesson ID' })
+    id: string;
+
+    @ApiProperty({ description: 'Lesson name' })
+    name: string;
+
+    @ApiPropertyOptional({ description: 'Cover image URL' })
+    coverImageUrl: string | null;
+
+    @ApiPropertyOptional({ description: 'Maximum words' })
+    maxWords: number | null;
+
+    @ApiPropertyOptional({ description: 'Order index' })
+    orderIndex: number | null;
+
+    @ApiProperty({ description: 'Course ID' })
+    courseId: string;
+
+    @ApiProperty({ description: 'Created at' })
+    createdAt: Date;
+
+    @ApiProperty({ description: 'Updated at' })
+    updatedAt: Date;
+
+    @ApiProperty({ description: 'Number of words in the lesson' })
+    wordsCount: number;
+}

@@ -109,6 +109,35 @@ export class CourseLessonsService {
         });
     }
 
+    async getLessonsByCourseId(
+        userLoginId: string,
+        courseId: string,
+    ): Promise<Array<Lesson & { wordsCount: number }>> {
+        const course = await this.prisma.course.findUnique({
+            where: {
+                id: courseId,
+                userLoginId: userLoginId,
+            },
+            include: {
+                lessons: {
+                    orderBy: [{ orderIndex: 'asc' }, { createdAt: 'asc' }],
+                    include: {
+                        _count: { select: { words: true } },
+                    },
+                },
+            },
+        });
+
+        if (!course) {
+            throw new NotFoundException('Course not found');
+        }
+
+        return course.lessons.map(({ _count, ...lesson }) => ({
+            ...lesson,
+            wordsCount: _count.words,
+        }));
+    }
+
     async getLessonById(
         userLoginId: string,
         courseId: string,
