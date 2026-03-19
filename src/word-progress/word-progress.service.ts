@@ -10,6 +10,9 @@ import {
     WordProgressStatsDto,
 } from './dto/word-progress.dto';
 
+/** Maximum interval in days — caps next review so words don't disappear for years. */
+const MAX_INTERVAL_DAYS = 60;
+
 /**
  * Word Progress Service
  * Implements the SuperMemo SM-2 spaced repetition algorithm
@@ -22,6 +25,9 @@ import {
  * The algorithm adjusts the interval based on the quality of the answer:
  * - Quality 0-2: Reset progress, review again tomorrow
  * - Quality 3-5: Increase interval based on ease factor
+ *
+ * A maximum interval cap ensures that repeatedly reviewing the same word correctly
+ * does not push the next review beyond MAX_INTERVAL_DAYS.
  */
 @Injectable()
 export class WordProgressService {
@@ -70,6 +76,10 @@ export class WordProgressService {
             } else {
                 // For subsequent reviews: I(n) = I(n-1) * EF
                 newInterval = Math.round(interval * newEaseFactor);
+                // Cap interval so repeatedly correct answers don't push review too far out
+                if (newInterval > MAX_INTERVAL_DAYS) {
+                    newInterval = MAX_INTERVAL_DAYS;
+                }
             }
         }
 
