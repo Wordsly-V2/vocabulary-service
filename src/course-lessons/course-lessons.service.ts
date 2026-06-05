@@ -1,3 +1,5 @@
+import { cacheKeys } from '@/cache/cache-keys';
+import { CacheService } from '@/cache/cache.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import {
     BadRequestException,
@@ -14,14 +16,17 @@ import {
 
 @Injectable()
 export class CourseLessonsService {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly cacheService: CacheService,
+    ) {}
 
     async createLesson(
         userLoginId: string,
         courseId: string,
         payload: CreateLessonDto,
     ): Promise<Lesson> {
-        return await this.prisma.$transaction(async (transaction) => {
+        const lesson = await this.prisma.$transaction(async (transaction) => {
             // Verify course exists and belongs to user
             const course = await transaction.course.findUnique({
                 where: {
@@ -52,6 +57,8 @@ export class CourseLessonsService {
                 },
             });
         });
+        await this.cacheService.invalidateUser(userLoginId);
+        return lesson;
     }
 
     async reorderLessons(
@@ -59,7 +66,7 @@ export class CourseLessonsService {
         courseId: string,
         payload: ReorderLessonsDto,
     ): Promise<Lesson[]> {
-        return await this.prisma.$transaction(async (transaction) => {
+        const lessons = await this.prisma.$transaction(async (transaction) => {
             const course = await transaction.course.findUnique({
                 where: {
                     id: courseId,
@@ -104,38 +111,45 @@ export class CourseLessonsService {
                     data: { orderIndex: index + 1 },
                 });
             });
-            const reOrderResults = await Promise.all(reOrderPromises);
-            return reOrderResults;
+            return Promise.all(reOrderPromises);
         });
+        await this.cacheService.invalidateUser(userLoginId);
+        return lessons;
     }
 
     async getLessonsByCourseId(
         userLoginId: string,
         courseId: string,
     ): Promise<Array<Lesson & { wordsCount: number }>> {
-        const course = await this.prisma.course.findUnique({
-            where: {
-                id: courseId,
-                userLoginId: userLoginId,
-            },
-            include: {
-                lessons: {
-                    orderBy: [{ orderIndex: 'asc' }, { createdAt: 'asc' }],
-                    include: {
-                        _count: { select: { words: true } },
+        return this.cacheService.getOrSet(
+            userLoginId,
+            [cacheKeys.lessonsByCourse(userLoginId, courseId)],
+            async () => {
+                const course = await this.prisma.course.findUnique({
+                    where: {
+                        id: courseId,
+                        userLoginId: userLoginId,
                     },
-                },
+                    include: {
+                        lessons: {
+                            orderBy: [{ orderIndex: 'asc' }, { createdAt: 'asc' }],
+                            include: {
+                                _count: { select: { words: true } },
+                            },
+                        },
+                    },
+                });
+
+                if (!course) {
+                    throw new NotFoundException('Course not found');
+                }
+
+                return course.lessons.map(({ _count, ...lesson }) => ({
+                    ...lesson,
+                    wordsCount: _count.words,
+                }));
             },
-        });
-
-        if (!course) {
-            throw new NotFoundException('Course not found');
-        }
-
-        return course.lessons.map(({ _count, ...lesson }) => ({
-            ...lesson,
-            wordsCount: _count.words,
-        }));
+        );
     }
 
     async getLessonById(
@@ -143,28 +157,34 @@ export class CourseLessonsService {
         courseId: string,
         lessonId: string,
     ): Promise<Lesson> {
-        const lesson = await this.prisma.lesson.findUnique({
-            where: {
-                id: lessonId,
-                course: {
-                    id: courseId,
-                    userLoginId: userLoginId,
-                },
-            },
-            include: {
-                words: {
-                    orderBy: {
-                        word: 'asc',
+        return this.cacheService.getOrSet(
+            userLoginId,
+            [cacheKeys.lessonDetail(userLoginId, courseId, lessonId)],
+            async () => {
+                const lesson = await this.prisma.lesson.findUnique({
+                    where: {
+                        id: lessonId,
+                        course: {
+                            id: courseId,
+                            userLoginId: userLoginId,
+                        },
                     },
-                },
+                    include: {
+                        words: {
+                            orderBy: {
+                                word: 'asc',
+                            },
+                        },
+                    },
+                });
+
+                if (!lesson) {
+                    throw new NotFoundException('Lesson not found');
+                }
+
+                return lesson;
             },
-        });
-
-        if (!lesson) {
-            throw new NotFoundException('Lesson not found');
-        }
-
-        return lesson;
+        );
     }
 
     async updateLesson(
@@ -191,7 +211,7 @@ export class CourseLessonsService {
             }
         }
 
-        return this.prisma.lesson.update({
+        const lesson = await this.prisma.lesson.update({
             where: {
                 id: lessonId,
                 course: { userLoginId: userLoginId, id: courseId },
@@ -202,6 +222,8 @@ export class CourseLessonsService {
                 maxWords: payload.maxWords,
             },
         });
+        await this.cacheService.invalidateUser(userLoginId);
+        return lesson;
     }
 
     async deleteLesson(
@@ -218,5 +240,6 @@ export class CourseLessonsService {
                 course: { userLoginId: userLoginId, id: courseId },
             },
         });
+        await this.cacheService.invalidateUser(userLoginId);
     }
 }

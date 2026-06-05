@@ -1,4 +1,6 @@
 import { CourseLessonWordsService } from '@/course-lesson-words/course-lesson-words.service';
+import { cacheKeys } from '@/cache/cache-keys';
+import { CacheService } from '@/cache/cache.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Pagination } from '@/types/common/pagination.type';
 import { Injectable, NotFoundException } from '@nestjs/common';
@@ -17,32 +19,40 @@ export class CoursesService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly courseLessonWordsService: CourseLessonWordsService,
+        private readonly cacheService: CacheService,
     ) {}
 
     async getCoursesTotalStats(
         userLoginId: string,
     ): Promise<CoursesTotalStats> {
-        const [totalCourses, totalLessons, totalWords] = await Promise.all([
-            this.prisma.course.count({
-                where: { userLoginId },
-            }),
-            this.prisma.lesson.count({
-                where: {
-                    course: { userLoginId },
-                },
-            }),
-            this.prisma.word.count({
-                where: {
-                    lesson: { course: { userLoginId } },
-                },
-            }),
-        ]);
+        return this.cacheService.getOrSet(
+            userLoginId,
+            [cacheKeys.userStats(userLoginId)],
+            async () => {
+                const [totalCourses, totalLessons, totalWords] =
+                    await Promise.all([
+                        this.prisma.course.count({
+                            where: { userLoginId },
+                        }),
+                        this.prisma.lesson.count({
+                            where: {
+                                course: { userLoginId },
+                            },
+                        }),
+                        this.prisma.word.count({
+                            where: {
+                                lesson: { course: { userLoginId } },
+                            },
+                        }),
+                    ]);
 
-        return {
-            totalCourses,
-            totalLessons,
-            totalWords,
-        };
+                return {
+                    totalCourses,
+                    totalLessons,
+                    totalWords,
+                };
+            },
+        );
     }
 
     async getCoursesByUserLoginId(
@@ -53,78 +63,95 @@ export class CoursesService {
         orderByDirection: 'asc' | 'desc' = 'asc',
         searchQuery: string = '',
     ): Promise<Pagination<CourseResponse>> {
-        const [courses, totalCourses] = await this.prisma.$transaction([
-            this.prisma.course.findMany({
-                where: {
-                    userLoginId: userLoginId,
-                    name: {
-                        contains: searchQuery,
-                        mode: 'insensitive',
-                    },
-                },
-                orderBy: {
-                    [orderByField]: orderByDirection,
-                },
-                include: {
-                    _count: {
-                        select: {
-                            lessons: true,
+        return this.cacheService.getOrSet(
+            userLoginId,
+            [
+                cacheKeys.coursesList(
+                    userLoginId,
+                    page,
+                    limit,
+                    orderByField,
+                    orderByDirection,
+                    searchQuery,
+                ),
+            ],
+            async () => {
+                const [courses, totalCourses] = await this.prisma.$transaction([
+                    this.prisma.course.findMany({
+                        where: {
+                            userLoginId: userLoginId,
+                            name: {
+                                contains: searchQuery,
+                                mode: 'insensitive',
+                            },
                         },
-                    },
-                    lessons: {
                         orderBy: {
-                            orderIndex: 'asc',
+                            [orderByField]: orderByDirection,
                         },
                         include: {
                             _count: {
                                 select: {
-                                    words: true,
+                                    lessons: true,
+                                },
+                            },
+                            lessons: {
+                                orderBy: {
+                                    orderIndex: 'asc',
+                                },
+                                include: {
+                                    _count: {
+                                        select: {
+                                            words: true,
+                                        },
+                                    },
                                 },
                             },
                         },
-                    },
-                },
-                skip: (page - 1) * limit,
-                take: limit,
-            }),
-            this.prisma.course.count({
-                where: {
-                    userLoginId: userLoginId,
-                    name: {
-                        contains: searchQuery,
-                        mode: 'insensitive',
-                    },
-                },
-            }),
-        ]);
+                        skip: (page - 1) * limit,
+                        take: limit,
+                    }),
+                    this.prisma.course.count({
+                        where: {
+                            userLoginId: userLoginId,
+                            name: {
+                                contains: searchQuery,
+                                mode: 'insensitive',
+                            },
+                        },
+                    }),
+                ]);
 
-        const coursesResponse: CourseResponse[] = courses.map((course) => ({
-            id: course.id,
-            name: course.name,
-            coverImageUrl: course.coverImageUrl,
-            userLoginId: course.userLoginId,
-            totalLessonsCount: course._count.lessons,
-            totalWordsCount: course.lessons.reduce(
-                (acc, lesson) => acc + lesson._count.words,
-                0,
-            ),
-        }));
+                const coursesResponse: CourseResponse[] = courses.map(
+                    (course) => ({
+                        id: course.id,
+                        name: course.name,
+                        coverImageUrl: course.coverImageUrl,
+                        userLoginId: course.userLoginId,
+                        totalLessonsCount: course._count.lessons,
+                        totalWordsCount: course.lessons.reduce(
+                            (acc, lesson) => acc + lesson._count.words,
+                            0,
+                        ),
+                    }),
+                );
 
-        return {
-            items: coursesResponse,
-            totalItems: totalCourses,
-            currentPageItems: courses.length,
-            totalPages: Math.ceil(totalCourses / limit),
-            currentPage: page,
-            limit: limit,
-        };
+                return {
+                    items: coursesResponse,
+                    totalItems: totalCourses,
+                    currentPageItems: courses.length,
+                    totalPages: Math.ceil(totalCourses / limit),
+                    currentPage: page,
+                    limit: limit,
+                };
+            },
+        );
     }
 
     async createCourse(
         userLoginId: string,
         payload: CreateCourseDto,
     ): Promise<Course> {
-        return this.prisma.course.create({
+        const course = await this.prisma.course.create({
             data: {
                 id: uuidv7(),
                 name: payload.name,
@@ -132,32 +159,40 @@ export class CoursesService {
                 userLoginId: userLoginId,
             },
         });
+        await this.cacheService.invalidateUser(userLoginId);
+        return course;
     }
 
     async getCourseById(
         userLoginId: string,
         courseId: string,
     ): Promise<CourseDetail> {
-        const course = await this.prisma.course.findUnique({
-            where: {
-                id: courseId,
-                userLoginId,
-            },
-            include: {
-                lessons: {
-                    orderBy: { orderIndex: 'asc' },
-                    include: {
-                        words: { orderBy: { word: 'asc' } },
+        return this.cacheService.getOrSet(
+            userLoginId,
+            [cacheKeys.courseDetail(userLoginId, courseId)],
+            async () => {
+                const course = await this.prisma.course.findUnique({
+                    where: {
+                        id: courseId,
+                        userLoginId,
                     },
-                },
+                    include: {
+                        lessons: {
+                            orderBy: { orderIndex: 'asc' },
+                            include: {
+                                words: { orderBy: { word: 'asc' } },
+                            },
+                        },
+                    },
+                });
+
+                if (!course) {
+                    throw new NotFoundException('Course not found');
+                }
+
+                return course;
             },
-        });
-
-        if (!course) {
-            throw new NotFoundException('Course not found');
-        }
-
-        return course;
+        );
     }
 
     async updateCourse(
@@ -167,13 +202,15 @@ export class CoursesService {
     ): Promise<Course> {
         await this.getCourseById(userLoginId, courseId);
 
-        return this.prisma.course.update({
+        const course = await this.prisma.course.update({
             where: { id: courseId, userLoginId: userLoginId },
             data: {
                 name: payload.name,
                 coverImageUrl: payload.coverImageUrl,
             },
         });
+        await this.cacheService.invalidateUser(userLoginId);
+        return course;
     }
 
     async deleteCourse(userLoginId: string, courseId: string): Promise<void> {
@@ -185,6 +222,7 @@ export class CoursesService {
                 userLoginId: userLoginId,
             },
         });
+        await this.cacheService.invalidateUser(userLoginId);
     }
 
     async getWords(
@@ -192,17 +230,22 @@ export class CoursesService {
         courseId: string,
         wordIds: string[],
     ): Promise<Word[]> {
-        return this.prisma.word.findMany({
-            where: {
-                id: { in: wordIds.length > 0 ? wordIds : undefined },
-                lesson: {
-                    course: { userLoginId: userLoginId, id: courseId },
-                },
-            },
-            orderBy: {
-                word: 'asc',
-            },
-        });
+        return this.cacheService.getOrSet(
+            userLoginId,
+            [cacheKeys.courseWords(userLoginId, courseId, wordIds)],
+            async () =>
+                this.prisma.word.findMany({
+                    where: {
+                        id: { in: wordIds.length > 0 ? wordIds : undefined },
+                        lesson: {
+                            course: { userLoginId: userLoginId, id: courseId },
+                        },
+                    },
+                    orderBy: {
+                        word: 'asc',
+                    },
+                }),
+        );
     }
 
     async deleteWordsBulkFromCourse(

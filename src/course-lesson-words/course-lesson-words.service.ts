@@ -1,3 +1,5 @@
+import { cacheKeys } from '@/cache/cache-keys';
+import { CacheService } from '@/cache/cache.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import {
     BadRequestException,
@@ -10,7 +12,10 @@ import { CreateWordDto, UpdateWordDto } from './dto/word.dto';
 
 @Injectable()
 export class CourseLessonWordsService {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly cacheService: CacheService,
+    ) {}
 
     /**
      * Ensures the lesson has capacity for `additionalCount` more words.
@@ -60,7 +65,7 @@ export class CourseLessonWordsService {
 
         await this.assertLessonHasCapacity(userLoginId, courseId, lessonId, 1);
 
-        return this.prisma.word.create({
+        const word = await this.prisma.word.create({
             data: {
                 id: uuidv7(),
                 word: payload.word,
@@ -73,6 +78,8 @@ export class CourseLessonWordsService {
                 example: payload.example,
             },
         });
+        await this.cacheService.invalidateUser(userLoginId);
+        return word;
     }
 
     async createWordsBulk(
@@ -115,6 +122,7 @@ export class CourseLessonWordsService {
             skipDuplicates: true,
         });
 
+        await this.cacheService.invalidateUser(userLoginId);
         return { count: result.count };
     }
 
@@ -124,24 +132,30 @@ export class CourseLessonWordsService {
         lessonId: string,
         wordId: string,
     ): Promise<Word> {
-        const word = await this.prisma.word.findUnique({
-            where: {
-                id: wordId,
-                lesson: {
-                    id: lessonId,
-                    course: {
-                        userLoginId: userLoginId,
-                        id: courseId,
+        return this.cacheService.getOrSet(
+            userLoginId,
+            [cacheKeys.wordDetail(userLoginId, courseId, lessonId, wordId)],
+            async () => {
+                const word = await this.prisma.word.findUnique({
+                    where: {
+                        id: wordId,
+                        lesson: {
+                            id: lessonId,
+                            course: {
+                                userLoginId: userLoginId,
+                                id: courseId,
+                            },
+                        },
                     },
-                },
+                });
+
+                if (!word) {
+                    throw new NotFoundException('Word not found');
+                }
+
+                return word;
             },
-        });
-
-        if (!word) {
-            throw new NotFoundException('Word not found');
-        }
-
-        return word;
+        );
     }
 
     async updateWord(
@@ -154,7 +168,7 @@ export class CourseLessonWordsService {
         // Verify word exists
         await this.getWordById(userLoginId, courseId, lessonId, wordId);
 
-        return this.prisma.word.update({
+        const word = await this.prisma.word.update({
             where: {
                 id: wordId,
                 lesson: {
@@ -167,6 +181,8 @@ export class CourseLessonWordsService {
             },
             data: payload,
         });
+        await this.cacheService.invalidateUser(userLoginId);
+        return word;
     }
 
     async deleteWord(
@@ -190,6 +206,7 @@ export class CourseLessonWordsService {
                 },
             },
         });
+        await this.cacheService.invalidateUser(userLoginId);
     }
 
     async deleteWordsBulk(
@@ -208,6 +225,7 @@ export class CourseLessonWordsService {
             },
         });
 
+        await this.cacheService.invalidateUser(userLoginId);
         return { count: result.count };
     }
 
@@ -240,7 +258,7 @@ export class CourseLessonWordsService {
             1,
         );
 
-        return this.prisma.word.update({
+        const word = await this.prisma.word.update({
             where: {
                 id: wordId,
                 lesson: {
@@ -250,6 +268,8 @@ export class CourseLessonWordsService {
             },
             data: { lessonId: targetLessonId },
         });
+        await this.cacheService.invalidateUser(userLoginId);
+        return word;
     }
 
     async moveWordsBulk(
@@ -291,6 +311,7 @@ export class CourseLessonWordsService {
             data: { lessonId: targetLessonId },
         });
 
+        await this.cacheService.invalidateUser(userLoginId);
         return { count: result.count };
     }
 
@@ -311,6 +332,7 @@ export class CourseLessonWordsService {
                 },
             },
         });
+        await this.cacheService.invalidateUser(userLoginId);
         return { count: result.count };
     }
 
@@ -348,6 +370,7 @@ export class CourseLessonWordsService {
             },
             data: { lessonId: targetLessonId },
         });
+        await this.cacheService.invalidateUser(userLoginId);
         return { count: result.count };
     }
 }

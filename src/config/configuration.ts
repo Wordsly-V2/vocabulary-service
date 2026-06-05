@@ -5,6 +5,9 @@ export default () => ({
     database: {
         url: process.env.DATABASE_URL,
     },
+    redis: {
+        url: process.env.REDIS_URL,
+    },
     kafka: {
         brokers: process.env.KAFKA_BROKERS,
         ca: process.env.KAFKA_CA,

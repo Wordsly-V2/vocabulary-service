@@ -13,6 +13,8 @@ import type {
     UserWordSearchResultDto,
     WordPronunciationResponseDto,
 } from './dto/dictionary.dto';
+import { cacheKeys } from '@/cache/cache-keys';
+import { CacheService } from '@/cache/cache.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import * as cheerio from 'cheerio';
 
@@ -29,6 +31,7 @@ export class DictionaryService {
     constructor(
         private readonly httpService: HttpService,
         private readonly prisma: PrismaService,
+        private readonly cacheService: CacheService,
     ) {}
 
     /**
@@ -416,45 +419,58 @@ export class DictionaryService {
             return [];
         }
         const term = searchTerm.trim();
-        const words = await this.prisma.word.findMany({
-            where: {
-                lesson: {
-                    course: { userLoginId },
-                },
-                OR: [
-                    { word: { contains: term, mode: 'insensitive' } },
-                    { meaning: { contains: term, mode: 'insensitive' } },
-                ],
-            },
-            take: Math.min(limit, 100),
-            orderBy: { word: 'asc' },
-            select: {
-                id: true,
-                word: true,
-                meaning: true,
-                partOfSpeech: true,
-                imageUrl: true,
-                lessonId: true,
-                lesson: {
-                    select: {
-                        name: true,
-                        courseId: true,
-                        course: { select: { name: true } },
+        const take = Math.min(limit, 100);
+
+        return this.cacheService.getOrSet(
+            userLoginId,
+            [cacheKeys.searchUserWords(userLoginId, term, take)],
+            async () => {
+                const words = await this.prisma.word.findMany({
+                    where: {
+                        lesson: {
+                            course: { userLoginId },
+                        },
+                        OR: [
+                            { word: { contains: term, mode: 'insensitive' } },
+                            {
+                                meaning: {
+                                    contains: term,
+                                    mode: 'insensitive',
+                                },
+                            },
+                        ],
                     },
-                },
+                    take,
+                    orderBy: { word: 'asc' },
+                    select: {
+                        id: true,
+                        word: true,
+                        meaning: true,
+                        partOfSpeech: true,
+                        imageUrl: true,
+                        lessonId: true,
+                        lesson: {
+                            select: {
+                                name: true,
+                                courseId: true,
+                                course: { select: { name: true } },
+                            },
+                        },
+                    },
+                });
+                return words.map((w) => ({
+                    id: w.id,
+                    word: w.word,
+                    meaning: w.meaning,
+                    partOfSpeech: w.partOfSpeech,
+                    imageUrl: w.imageUrl,
+                    lessonId: w.lessonId,
+                    lessonName: w.lesson.name,
+                    courseId: w.lesson.courseId,
+                    courseName: w.lesson.course.name,
+                }));
             },
-        });
-        return words.map((w) => ({
-            id: w.id,
-            word: w.word,
-            meaning: w.meaning,
-            partOfSpeech: w.partOfSpeech,
-            imageUrl: w.imageUrl,
-            lessonId: w.lessonId,
-            lessonName: w.lesson.name,
-            courseId: w.lesson.courseId,
-            courseName: w.lesson.course.name,
-        }));
+        );
     }
 
     /** Default page size for getWordsForSyncFilters to avoid loading too many rows. */
@@ -549,6 +565,23 @@ export class DictionaryService {
                     example,
                 },
             });
+
+            const owner = await this.prisma.word.findUnique({
+                where: { id: wordId },
+                select: {
+                    lesson: {
+                        select: {
+                            course: { select: { userLoginId: true } },
+                        },
+                    },
+                },
+            });
+            const userLoginId =
+                owner?.lesson?.course?.userLoginId;
+            if (userLoginId) {
+                await this.cacheService.invalidateUser(userLoginId);
+            }
+
             return { status: 'updated' };
         } catch (err: unknown) {
             const reason = err instanceof Error ? err.message : String(err);
