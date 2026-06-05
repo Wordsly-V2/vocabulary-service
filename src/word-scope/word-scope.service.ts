@@ -1,5 +1,6 @@
 import { cacheKeys } from '@/cache/cache-keys';
 import { CacheService } from '@/cache/cache.service';
+import { CacheKind } from '@/cache/cache-ttl';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
 import type { WordScopeGroupDto } from './dto/word-scope.dto';
@@ -35,6 +36,7 @@ export class WordScopeService {
                 });
                 return words.map((w) => w.id);
             },
+            CacheKind.Scope,
         );
     }
 
@@ -55,6 +57,7 @@ export class WordScopeService {
                 });
                 return word != null;
             },
+            CacheKind.Scope,
         );
     }
 
@@ -79,6 +82,7 @@ export class WordScopeService {
                 });
                 return words.map((w) => w.id);
             },
+            CacheKind.Scope,
         );
     }
 
@@ -117,6 +121,7 @@ export class WordScopeService {
 
                 return result;
             },
+            CacheKind.Scope,
         );
     }
 
@@ -161,6 +166,7 @@ export class WordScopeService {
 
                 return result;
             },
+            CacheKind.Scope,
         );
     }
 }

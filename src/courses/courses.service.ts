@@ -1,6 +1,7 @@
 import { CourseLessonWordsService } from '@/course-lesson-words/course-lesson-words.service';
 import { cacheKeys } from '@/cache/cache-keys';
 import { CacheService } from '@/cache/cache.service';
+import { CacheKind } from '@/cache/cache-ttl';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Pagination } from '@/types/common/pagination.type';
 import { Injectable, NotFoundException } from '@nestjs/common';
@@ -52,6 +53,7 @@ export class CoursesService {
                     totalWords,
                 };
             },
+            CacheKind.UserStats,
         );
     }
 
@@ -144,6 +146,7 @@ export class CoursesService {
                     limit: limit,
                 };
             },
+            CacheKind.CoursesList,
         );
     }
 
@@ -192,6 +195,7 @@ export class CoursesService {
 
                 return course;
             },
+            CacheKind.CourseDetail,
         );
     }
 
@@ -245,6 +249,7 @@ export class CoursesService {
                         word: 'asc',
                     },
                 }),
+            CacheKind.CourseWords,
         );
     }
 

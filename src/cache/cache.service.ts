@@ -7,17 +7,15 @@ import {
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { userCachePattern } from './cache-keys';
+import { CACHE_TTL_SECONDS, CacheKind } from './cache-ttl';
 
 @Injectable()
 export class CacheService implements OnModuleInit, OnModuleDestroy {
     private readonly logger = new Logger(CacheService.name);
     private client: Redis | null = null;
-    private readonly ttlSeconds: number;
     private readonly keyPrefix = 'vocab';
 
-    constructor(private readonly configService: ConfigService) {
-        this.ttlSeconds = this.configService.get<number>('redis.ttl') ?? 86400;
-    }
+    constructor(private readonly configService: ConfigService) {}
 
     get isEnabled(): boolean {
         return this.client !== null;
@@ -60,6 +58,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         userLoginId: string,
         keyParts: string[],
         factory: () => Promise<T>,
+        kind: CacheKind,
     ): Promise<T> {
         const key = this.userKey(userLoginId, ...keyParts);
         if (!this.client) {
@@ -83,7 +82,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
                 key,
                 JSON.stringify(value),
                 'EX',
-                this.ttlSeconds,
+                CACHE_TTL_SECONDS[kind],
             );
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);

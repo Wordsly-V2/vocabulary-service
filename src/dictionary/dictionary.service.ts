@@ -15,6 +15,7 @@ import type {
 } from './dto/dictionary.dto';
 import { cacheKeys } from '@/cache/cache-keys';
 import { CacheService } from '@/cache/cache.service';
+import { CacheKind } from '@/cache/cache-ttl';
 import { PrismaService } from '@/prisma/prisma.service';
 import * as cheerio from 'cheerio';
 
@@ -470,6 +471,7 @@ export class DictionaryService {
                     courseName: w.lesson.course.name,
                 }));
             },
+            CacheKind.Search,
         );
     }
 

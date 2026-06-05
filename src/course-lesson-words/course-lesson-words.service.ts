@@ -1,5 +1,6 @@
 import { cacheKeys } from '@/cache/cache-keys';
 import { CacheService } from '@/cache/cache.service';
+import { CacheKind } from '@/cache/cache-ttl';
 import { PrismaService } from '@/prisma/prisma.service';
 import {
     BadRequestException,
@@ -155,6 +156,7 @@ export class CourseLessonWordsService {
 
                 return word;
             },
+            CacheKind.WordDetail,
         );
     }
 
