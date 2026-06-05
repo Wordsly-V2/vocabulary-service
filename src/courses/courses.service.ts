@@ -1,14 +1,12 @@
 import { CourseLessonWordsService } from '@/course-lesson-words/course-lesson-words.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Pagination } from '@/types/common/pagination.type';
-import type { WordProgressStatsDto } from '@/word-progress/dto/word-progress.dto';
-import { WordProgressService } from '@/word-progress/word-progress.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Course, Word } from '@prisma/client';
 import { v7 as uuidv7 } from 'uuid';
 import {
+    CourseDetail,
     CourseResponse,
-    CourseWithWordProgressStats,
     CoursesTotalStats,
     CreateCourseDto,
     UpdateCourseDto,
@@ -18,36 +16,32 @@ import {
 export class CoursesService {
     constructor(
         private readonly prisma: PrismaService,
-        private readonly wordProgressService: WordProgressService,
         private readonly courseLessonWordsService: CourseLessonWordsService,
     ) {}
 
     async getCoursesTotalStats(
         userLoginId: string,
     ): Promise<CoursesTotalStats> {
-        const [totalCourses, totalLessons, totalWords, wordProgressStats] =
-            await Promise.all([
-                this.prisma.course.count({
-                    where: { userLoginId },
-                }),
-                this.prisma.lesson.count({
-                    where: {
-                        course: { userLoginId },
-                    },
-                }),
-                this.prisma.word.count({
-                    where: {
-                        lesson: { course: { userLoginId } },
-                    },
-                }),
-                this.wordProgressService.getProgressStats(userLoginId),
-            ]);
+        const [totalCourses, totalLessons, totalWords] = await Promise.all([
+            this.prisma.course.count({
+                where: { userLoginId },
+            }),
+            this.prisma.lesson.count({
+                where: {
+                    course: { userLoginId },
+                },
+            }),
+            this.prisma.word.count({
+                where: {
+                    lesson: { course: { userLoginId } },
+                },
+            }),
+        ]);
 
         return {
             totalCourses,
             totalLessons,
             totalWords,
-            wordProgressStats,
         };
     }
 
@@ -104,13 +98,6 @@ export class CoursesService {
             }),
         ]);
 
-        const courseIds = courses.map((c) => c.id);
-        const statsByCourse =
-            await this.wordProgressService.getProgressStatsMapByCourseIds(
-                userLoginId,
-                courseIds,
-            );
-
         const coursesResponse: CourseResponse[] = courses.map((course) => ({
             id: course.id,
             name: course.name,
@@ -121,8 +108,6 @@ export class CoursesService {
                 (acc, lesson) => acc + lesson._count.words,
                 0,
             ),
-            wordProgressStats:
-                statsByCourse.get(course.id) ?? this.emptyWordProgressStats(),
         }));
 
         return {
@@ -152,7 +137,7 @@ export class CoursesService {
     async getCourseById(
         userLoginId: string,
         courseId: string,
-    ): Promise<CourseWithWordProgressStats> {
+    ): Promise<CourseDetail> {
         const course = await this.prisma.course.findUnique({
             where: {
                 id: courseId,
@@ -172,47 +157,7 @@ export class CoursesService {
             throw new NotFoundException('Course not found');
         }
 
-        const lessonIds = course.lessons.map((l) => l.id);
-        const wordIds = course.lessons.flatMap((l) => l.words.map((w) => w.id));
-        const [statsByLesson, courseStats, progressByWord] = await Promise.all([
-            this.wordProgressService.getProgressStatsMapByLessonIds(
-                userLoginId,
-                lessonIds,
-            ),
-            this.wordProgressService.getProgressStats(userLoginId, courseId),
-            this.wordProgressService.getProgressMapByWordIds(
-                userLoginId,
-                wordIds,
-            ),
-        ]);
-
-        const lessonsWithStats = course.lessons.map((lesson) => ({
-            ...lesson,
-            words: lesson.words.map((word) => ({
-                ...word,
-                wordProgress: progressByWord.get(word.id) ?? null,
-            })),
-            wordProgressStats:
-                statsByLesson.get(lesson.id) ?? this.emptyWordProgressStats(),
-        }));
-
-        return {
-            ...course,
-            lessons: lessonsWithStats,
-            wordProgressStats: courseStats,
-        };
-    }
-
-    /** Common empty stats when no progress data exists. */
-    private emptyWordProgressStats(): WordProgressStatsDto {
-        return {
-            totalWords: 0,
-            newWords: 0,
-            learningWords: 0,
-            reviewWords: 0,
-            dueToday: 0,
-            overallSuccessRate: 0,
-        };
+        return course;
     }
 
     async updateCourse(
@@ -220,7 +165,6 @@ export class CoursesService {
         courseId: string,
         payload: UpdateCourseDto,
     ): Promise<Course> {
-        // Verify course exists
         await this.getCourseById(userLoginId, courseId);
 
         return this.prisma.course.update({
@@ -233,7 +177,6 @@ export class CoursesService {
     }
 
     async deleteCourse(userLoginId: string, courseId: string): Promise<void> {
-        // Verify course exists
         await this.getCourseById(userLoginId, courseId);
 
         await this.prisma.course.delete({

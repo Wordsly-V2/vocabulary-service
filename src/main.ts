@@ -26,11 +26,8 @@ async function bootstrap() {
         .addTag('courses', 'Course management endpoints')
         .addTag('lessons', 'Lesson management endpoints')
         .addTag('words', 'Word management endpoints')
-        .addTag(
-            'word-progress',
-            'Word progress and spaced repetition endpoints',
-        )
         .addTag('dictionary', 'Dictionary lookup endpoints')
+        .addTag('words', 'Word scope endpoints for learning-service')
         .build();
 
     const document = SwaggerModule.createDocument(app, config);

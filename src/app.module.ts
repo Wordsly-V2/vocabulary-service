@@ -9,8 +9,7 @@ import { CoursesModule } from './courses/courses.module';
 import { DictionaryModule } from './dictionary/dictionary.module';
 import { HttpClientsModule } from './http-clients/http-clients.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { WordProgressModule } from './word-progress/word-progress.module';
-
+import { WordScopeModule } from './word-scope/word-scope.module';
 @Module({
     imports: [
         ConfigModule.forRoot({
@@ -22,7 +21,7 @@ import { WordProgressModule } from './word-progress/word-progress.module';
         CourseLessonWordsModule,
         DictionaryModule,
         CourseLessonsModule,
-        WordProgressModule,
+        WordScopeModule,
         HttpClientsModule,
     ],
     controllers: [AppController],
