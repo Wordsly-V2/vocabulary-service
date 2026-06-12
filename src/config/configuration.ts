@@ -1,5 +1,6 @@
 export default () => ({
     port: parseInt(process.env.PORT ?? '3002', 10) ?? 3002,
+    corsEnabledOrigins: process.env.CORS_ENABLED_ORIGINS,
     internalServiceToServiceToken:
         process.env.INTERNAL_SERVICE_TO_SERVICE_TOKEN,
     database: {

@@ -34,6 +34,18 @@ async function bootstrap() {
     SwaggerModule.setup('api', app, document);
 
     const configService = app.get(ConfigService);
+
+    const corsEnabledOrigins = (
+        configService.get<string>('corsEnabledOrigins') ?? ''
+    ).split(',');
+
+    app.enableCors({
+        origin: corsEnabledOrigins,
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+    });
+
     const appPort = configService.get<number>('port');
 
     const brokers = configService.get<string>('kafka.brokers') ?? '';
@@ -66,6 +78,7 @@ async function bootstrap() {
     await app.startAllMicroservices();
     await app.listen(appPort as number);
     console.log(`Vocabulary Service HTTP is running on port ${appPort}`);
+    console.log(`CORS enabled origins: ${corsEnabledOrigins.join(', ')}`);
     console.log(
         `Swagger documentation available at http://localhost:${appPort}/api`,
     );
