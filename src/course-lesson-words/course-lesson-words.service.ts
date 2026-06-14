@@ -1,6 +1,8 @@
 import { cacheKeys } from '@/cache/cache-keys';
 import { CacheService } from '@/cache/cache.service';
 import { CacheKind } from '@/cache/cache-ttl';
+import { WORDS_DELETED_TOPIC } from '@/messaging/constants';
+import { KafkaProducerService } from '@/messaging/kafka-producer.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import {
     BadRequestException,
@@ -16,7 +18,13 @@ export class CourseLessonWordsService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly cacheService: CacheService,
+        private readonly kafkaProducer: KafkaProducerService,
     ) {}
+
+    private async publishWordDeletedEvents(wordIds: string[]): Promise<void> {
+        if (wordIds.length === 0) return;
+        await this.kafkaProducer.send(WORDS_DELETED_TOPIC, { wordIds });
+    }
 
     /**
      * Ensures the lesson has capacity for `additionalCount` more words.
@@ -208,6 +216,7 @@ export class CourseLessonWordsService {
                 },
             },
         });
+        await this.publishWordDeletedEvents([wordId]);
         await this.cacheService.invalidateUser(userLoginId);
     }
 
@@ -227,6 +236,9 @@ export class CourseLessonWordsService {
             },
         });
 
+        if (result.count > 0) {
+            await this.publishWordDeletedEvents(wordIds);
+        }
         await this.cacheService.invalidateUser(userLoginId);
         return { count: result.count };
     }
@@ -334,6 +346,9 @@ export class CourseLessonWordsService {
                 },
             },
         });
+        if (result.count > 0) {
+            await this.publishWordDeletedEvents(wordIds);
+        }
         await this.cacheService.invalidateUser(userLoginId);
         return { count: result.count };
     }
