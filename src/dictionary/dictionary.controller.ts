@@ -6,12 +6,20 @@ import {
     Param,
     ParseUUIDPipe,
     Post,
+    Query,
     UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+    ApiOperation,
+    ApiParam,
+    ApiQuery,
+    ApiResponse,
+    ApiTags,
+} from '@nestjs/swagger';
 import { DictionaryService } from './dictionary.service';
 import {
     DictionarySearchResultDto,
+    LangeekFilter,
     LangeekWordDetailsDto,
     SyncWordsLangeekDto,
     UserWordSearchResultDto,
@@ -54,6 +62,11 @@ export class DictionaryController {
         name: 'word',
         description: 'Word to search for',
     })
+    @ApiQuery({
+        name: 'filters',
+        description: 'Filters to apply to the search',
+        example: ['withExamples', 'inCategory', 'photo'],
+    })
     @ApiResponse({
         status: 200,
         description: 'Words searched successfully',
@@ -63,8 +76,11 @@ export class DictionaryController {
         status: 400,
         description: 'Invalid word format',
     })
-    async searchWords(@Param('word') word: string) {
-        return this.dictionaryService.searchWords(word);
+    async searchWords(
+        @Param('word') word: string,
+        @Query('filters') filters: LangeekFilter[] = [],
+    ) {
+        return this.dictionaryService.searchWords(word, filters);
     }
 
     @Get('word-details/:word/:partOfSpeech')

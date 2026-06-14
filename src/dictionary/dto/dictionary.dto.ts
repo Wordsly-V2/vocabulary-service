@@ -380,3 +380,6 @@ export class LangeekWordEntryDto {
     @ApiProperty({ type: [String] })
     localizedData: string[];
 }
+
+export const LANGEEK_FILTERS = ['withExamples', 'inCategory', 'photo'] as const;
+export type LangeekFilter = (typeof LANGEEK_FILTERS)[number];

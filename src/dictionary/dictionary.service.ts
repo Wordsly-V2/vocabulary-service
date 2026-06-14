@@ -6,6 +6,7 @@ import type {
     DictionarySearchResultDto,
     GetWordsForSyncFiltersResponseDto,
     IpaEntryDto,
+    LangeekFilter,
     LangeekWordDetailsDto,
     LangeekWordEntryDto,
     ProcessWordSyncResultDto,
@@ -145,11 +146,15 @@ export class DictionaryService {
         );
     }
 
-    async searchWords(word: string): Promise<DictionarySearchResultDto[]> {
+    async searchWords(
+        word: string,
+        filters: LangeekFilter[],
+    ): Promise<DictionarySearchResultDto[]> {
         try {
+            const filterString = filters.join(',');
             const response = await firstValueFrom(
                 this.httpService.get<LangeekWordEntryDto[]>(
-                    `https://api.langeek.co/v1/cs/en/vi/word/?term=${word}&filter=,inCategory,photo,withExamples`,
+                    `https://api.langeek.co/v1/cs/en/vi/word/?term=${word}&filter=${filterString}`,
                 ),
             );
             const entries = response.data ?? [];
@@ -203,7 +208,7 @@ export class DictionaryService {
             const partOfSpeechNorm = partOfSpeech.trim().toLowerCase();
 
             const [searchResults, buildId] = await Promise.all([
-                this.searchWords(word),
+                this.searchWords(word, []),
                 this.getLangeekBuildId(),
             ]);
             if (!searchResults.length) return null;
@@ -578,8 +583,7 @@ export class DictionaryService {
                     },
                 },
             });
-            const userLoginId =
-                owner?.lesson?.course?.userLoginId;
+            const userLoginId = owner?.lesson?.course?.userLoginId;
             if (userLoginId) {
                 await this.cacheService.invalidateUser(userLoginId);
             }
