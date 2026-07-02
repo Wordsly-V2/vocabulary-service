@@ -24,6 +24,7 @@ model Course {
 
   lessons Lesson[]
 
+  @@index([userLoginId])
   @@map("courses")
 }
 
@@ -42,6 +43,7 @@ model Lesson {
 
   words Word[]
 
+  @@index([courseId])
   @@map("lessons")
 }
 
@@ -61,5 +63,6 @@ model Word {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
+  @@index([lessonId])
   @@map("words")
 }

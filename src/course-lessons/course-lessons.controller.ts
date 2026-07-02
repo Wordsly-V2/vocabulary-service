@@ -126,7 +126,6 @@ export class CourseLessonsController {
         @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
     ): Promise<Array<Lesson & { wordsCount: number }>> {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call -- service return type resolves from Prisma Lesson + wordsCount
         return this.lessonsService.getLessonsByCourseId(userLoginId, courseId);
     }
 

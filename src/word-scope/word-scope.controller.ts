@@ -9,12 +9,7 @@ import {
     Query,
     UseGuards,
 } from '@nestjs/common';
-import {
-    ApiOperation,
-    ApiParam,
-    ApiResponse,
-    ApiTags,
-} from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import {
     ByCourseIdsDto,
     ByLessonIdsDto,

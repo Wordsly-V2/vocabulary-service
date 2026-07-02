@@ -54,13 +54,37 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         return `${this.keyPrefix}:u:${userLoginId}:${parts.join(':')}`;
     }
 
+    /** Key for user-independent data (e.g. dictionary lookups); survives per-user invalidation. */
+    private globalKey(...parts: string[]): string {
+        return `${this.keyPrefix}:g:${parts.join(':')}`;
+    }
+
+    async getOrSetGlobal<T>(
+        keyParts: string[],
+        factory: () => Promise<T>,
+        kind: CacheKind,
+    ): Promise<T> {
+        return this.getOrSetByKey(this.globalKey(...keyParts), factory, kind);
+    }
+
     async getOrSet<T>(
         userLoginId: string,
         keyParts: string[],
         factory: () => Promise<T>,
         kind: CacheKind,
     ): Promise<T> {
-        const key = this.userKey(userLoginId, ...keyParts);
+        return this.getOrSetByKey(
+            this.userKey(userLoginId, ...keyParts),
+            factory,
+            kind,
+        );
+    }
+
+    private async getOrSetByKey<T>(
+        key: string,
+        factory: () => Promise<T>,
+        kind: CacheKind,
+    ): Promise<T> {
         if (!this.client) {
             return factory();
         }

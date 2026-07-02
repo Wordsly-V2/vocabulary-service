@@ -8,6 +8,7 @@ export enum CacheKind {
     WordDetail = 'wordDetail',
     Search = 'search',
     Scope = 'scope',
+    Dictionary = 'dictionary',
 }
 
 /** TTL in seconds per cache kind. Writes invalidate user cache; TTL is a safety net. */
@@ -21,4 +22,7 @@ export const CACHE_TTL_SECONDS: Record<CacheKind, number> = {
     [CacheKind.WordDetail]: 24 * 60 * 60,
     [CacheKind.Search]: 15 * 60,
     [CacheKind.Scope]: 60 * 60,
+    // External dictionary content is effectively static; cache long to spare
+    // the upstream scrapers (Cambridge/Langeek) and cut lookup latency.
+    [CacheKind.Dictionary]: 7 * 24 * 60 * 60,
 };

@@ -133,7 +133,10 @@ export class CourseLessonsService {
                     },
                     include: {
                         lessons: {
-                            orderBy: [{ orderIndex: 'asc' }, { createdAt: 'asc' }],
+                            orderBy: [
+                                { orderIndex: 'asc' },
+                                { createdAt: 'asc' },
+                            ],
                             include: {
                                 _count: { select: { words: true } },
                             },

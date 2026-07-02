@@ -32,7 +32,10 @@ export class WordScopeService {
                         },
                     },
                     select: { id: true },
-                    orderBy: [{ lesson: { orderIndex: 'asc' } }, { word: 'asc' }],
+                    orderBy: [
+                        { lesson: { orderIndex: 'asc' } },
+                        { word: 'asc' },
+                    ],
                 });
                 return words.map((w) => w.id);
             },
@@ -40,10 +43,7 @@ export class WordScopeService {
         );
     }
 
-    async hasWordAccess(
-        userLoginId: string,
-        wordId: string,
-    ): Promise<boolean> {
+    async hasWordAccess(userLoginId: string, wordId: string): Promise<boolean> {
         return this.cacheService.getOrSet(
             userLoginId,
             [cacheKeys.hasWordAccess(userLoginId, wordId)],
@@ -95,10 +95,7 @@ export class WordScopeService {
             [cacheKeys.groupByLessonIds(userLoginId, lessonIds)],
             async () => {
                 const result = Object.fromEntries(
-                    lessonIds.map((id) => [
-                        id,
-                        { wordIds: [], totalWords: 0 },
-                    ]),
+                    lessonIds.map((id) => [id, { wordIds: [], totalWords: 0 }]),
                 ) as Record<string, WordScopeGroupDto>;
 
                 if (lessonIds.length === 0) {
@@ -134,10 +131,7 @@ export class WordScopeService {
             [cacheKeys.groupByCourseIds(userLoginId, courseIds)],
             async () => {
                 const result = Object.fromEntries(
-                    courseIds.map((id) => [
-                        id,
-                        { wordIds: [], totalWords: 0 },
-                    ]),
+                    courseIds.map((id) => [id, { wordIds: [], totalWords: 0 }]),
                 ) as Record<string, WordScopeGroupDto>;
 
                 if (courseIds.length === 0) {
@@ -155,7 +149,10 @@ export class WordScopeService {
                         id: true,
                         lesson: { select: { courseId: true } },
                     },
-                    orderBy: [{ lesson: { orderIndex: 'asc' } }, { word: 'asc' }],
+                    orderBy: [
+                        { lesson: { orderIndex: 'asc' } },
+                        { word: 'asc' },
+                    ],
                 });
 
                 for (const word of words) {

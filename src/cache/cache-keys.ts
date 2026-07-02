@@ -40,8 +40,7 @@ export const cacheKeys = {
         userLoginId: string,
         courseId?: string,
         lessonId?: string,
-    ) =>
-        `scope:ids:c${courseId ?? 'all'}:l${lessonId ?? 'all'}`,
+    ) => `scope:ids:c${courseId ?? 'all'}:l${lessonId ?? 'all'}`,
 
     hasWordAccess: (userLoginId: string, wordId: string) =>
         `scope:access:${wordId}`,

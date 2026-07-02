@@ -27,9 +27,16 @@ const baseCambridgeUrl = 'https://dictionary.cambridge.org';
 const LANGEEK_DICTIONARY_BASE = 'https://dictionary.langeek.co';
 /** Regex to extract Next.js build ID from script src (e.g. /_next/static/W9DFkAUd2V1IVyQySqa5d/_buildManifest.js or /next/static/.../ssgManifest.js) */
 const LANGEEK_BUILD_ID_REGEX = /"buildId":"([^"]+)"/;
+/** How long a scraped Langeek build ID stays valid before re-fetching. */
+const LANGEEK_BUILD_ID_TTL_MS = 6 * 60 * 60 * 1000;
+
+const encodeKeyPart = (value: string): string =>
+    encodeURIComponent(value.trim().toLowerCase()).replace(/%/g, '_');
 
 @Injectable()
 export class DictionaryService {
+    private langeekBuildId: { value: string; fetchedAt: number } | null = null;
+
     constructor(
         private readonly httpService: HttpService,
         private readonly prisma: PrismaService,
@@ -41,6 +48,16 @@ export class DictionaryService {
      * Uses existing DictionaryScraper for pronunciation; fetches Cambridge page for IPA by pos.
      */
     async getWordPronunciation(
+        word: string,
+    ): Promise<WordPronunciationResponseDto> {
+        return this.cacheService.getOrSetGlobal(
+            [`dict:pron:${encodeKeyPart(word)}`],
+            () => this.fetchWordPronunciation(word),
+            CacheKind.Dictionary,
+        );
+    }
+
+    private async fetchWordPronunciation(
         word: string,
     ): Promise<WordPronunciationResponseDto> {
         const emptyIpas: IpaEntryDto[] = [];
@@ -150,6 +167,18 @@ export class DictionaryService {
         word: string,
         filters: LangeekFilter[],
     ): Promise<DictionarySearchResultDto[]> {
+        const filterKey = [...filters].sort().join(',') || 'none';
+        return this.cacheService.getOrSetGlobal(
+            [`dict:search:${encodeKeyPart(word)}:f${filterKey}`],
+            () => this.fetchSearchWords(word, filters),
+            CacheKind.Dictionary,
+        );
+    }
+
+    private async fetchSearchWords(
+        word: string,
+        filters: LangeekFilter[],
+    ): Promise<DictionarySearchResultDto[]> {
         try {
             const filterString = filters.join(',');
             const response = await firstValueFrom(
@@ -170,6 +199,16 @@ export class DictionaryService {
      * Result is cached in memory.
      */
     private async getLangeekBuildId(): Promise<string> {
+        const cached = this.langeekBuildId;
+        if (cached && Date.now() - cached.fetchedAt < LANGEEK_BUILD_ID_TTL_MS) {
+            return cached.value;
+        }
+        const value = await this.fetchLangeekBuildId();
+        this.langeekBuildId = { value, fetchedAt: Date.now() };
+        return value;
+    }
+
+    private async fetchLangeekBuildId(): Promise<string> {
         const headers = {
             'User-Agent':
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -201,6 +240,19 @@ export class DictionaryService {
      * otherwise uses the first available sense.
      */
     async getLangeekWordDetails(
+        word: string,
+        partOfSpeech: string,
+    ): Promise<LangeekWordDetailsDto | null> {
+        return this.cacheService.getOrSetGlobal(
+            [
+                `dict:details:${encodeKeyPart(word)}:p${encodeKeyPart(partOfSpeech)}`,
+            ],
+            () => this.fetchLangeekWordDetails(word, partOfSpeech),
+            CacheKind.Dictionary,
+        );
+    }
+
+    private async fetchLangeekWordDetails(
         word: string,
         partOfSpeech: string,
     ): Promise<LangeekWordDetailsDto | null> {
@@ -362,6 +414,14 @@ export class DictionaryService {
     }
 
     async getWordExamples(word: string): Promise<string[]> {
+        return this.cacheService.getOrSetGlobal(
+            [`dict:examples:${encodeKeyPart(word)}`],
+            () => this.fetchWordExamples(word),
+            CacheKind.Dictionary,
+        );
+    }
+
+    private async fetchWordExamples(word: string): Promise<string[]> {
         try {
             const meanings = await dictionary.meaning(word);
             const examples = meanings.reduce<string[]>((acc, curr) => {
