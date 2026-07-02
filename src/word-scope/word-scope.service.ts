@@ -3,6 +3,7 @@ import { CacheService } from '@/cache/cache.service';
 import { CacheKind } from '@/cache/cache-ttl';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
+import type { Word } from '@prisma/client';
 import type { WordScopeGroupDto } from './dto/word-scope.dto';
 
 @Injectable()
@@ -83,6 +84,34 @@ export class WordScopeService {
                 return words.map((w) => w.id);
             },
             CacheKind.Scope,
+        );
+    }
+
+    /**
+     * Hydrate full word details for owned word IDs regardless of course, so an
+     * all-courses practice session can load its words in one call. Ownership is
+     * enforced via the lesson→course→userLoginId chain.
+     */
+    async getWordsByIds(
+        userLoginId: string,
+        wordIds: string[],
+    ): Promise<Word[]> {
+        if (wordIds.length === 0) {
+            return [];
+        }
+
+        return this.cacheService.getOrSet(
+            userLoginId,
+            [cacheKeys.ownedWordsByIds(userLoginId, wordIds)],
+            async () =>
+                this.prisma.word.findMany({
+                    where: {
+                        id: { in: wordIds },
+                        lesson: { course: { userLoginId } },
+                    },
+                    orderBy: { word: 'asc' },
+                }),
+            CacheKind.CourseWords,
         );
     }
 

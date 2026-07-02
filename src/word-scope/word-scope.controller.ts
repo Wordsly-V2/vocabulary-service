@@ -10,6 +10,7 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { Word } from '@prisma/client';
 import {
     ByCourseIdsDto,
     ByLessonIdsDto,
@@ -79,6 +80,17 @@ export class WordScopeController {
             body.wordIds,
         );
         return { wordIds };
+    }
+
+    @Post('hydrate-by-ids')
+    @ApiOperation({
+        summary: 'Get full word details for owned word IDs across any course',
+    })
+    async getWordsByIds(
+        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @Body() body: FilterOwnedWordIdsDto,
+    ): Promise<Word[]> {
+        return this.wordScopeService.getWordsByIds(userLoginId, body.wordIds);
     }
 
     @Post('group-by-lesson-ids')

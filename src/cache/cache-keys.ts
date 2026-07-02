@@ -20,6 +20,9 @@ export const cacheKeys = {
     courseWords: (userLoginId: string, courseId: string, wordIds: string[]) =>
         `course:${courseId}:words:${[...wordIds].sort().join(',')}`,
 
+    ownedWordsByIds: (userLoginId: string, wordIds: string[]) =>
+        `words:by-ids:${[...wordIds].sort().join(',')}`,
+
     lessonsByCourse: (userLoginId: string, courseId: string) =>
         `course:${courseId}:lessons`,
 
