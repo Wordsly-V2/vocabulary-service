@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CacheModule } from './cache/cache.module';
 import configuration from './config/configuration';
+import { validateEnv } from './config/validate-env';
 import { CourseLessonWordsModule } from './course-lesson-words/course-lesson-words.module';
 import { CourseLessonsModule } from './course-lessons/course-lessons.module';
 import { CoursesModule } from './courses/courses.module';
@@ -16,6 +17,7 @@ import { WordScopeModule } from './word-scope/word-scope.module';
         ConfigModule.forRoot({
             isGlobal: true,
             load: [configuration],
+            validate: validateEnv,
         }),
         CacheModule,
         CoursesModule,
