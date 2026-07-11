@@ -7,6 +7,7 @@ import type {
     GetWordsForSyncFiltersResponseDto,
     IpaEntryDto,
     LangeekFilter,
+    LangeekTranslationItemDto,
     LangeekWordDetailsDto,
     LangeekWordEntryDto,
     ProcessWordSyncResultDto,
@@ -369,14 +370,10 @@ export class DictionaryService {
             | { translation?: string; otherTranslations?: string }
             | undefined;
 
-        const meaning = [
-            ...new Set(
-                [
-                    localizedProperties?.translation,
-                    localizedProperties?.otherTranslations,
-                ].filter((t): t is string => t != null && t !== ''),
-            ),
-        ].join(', ');
+        const meaning = this.mergeMeanings([
+            localizedProperties?.translation,
+            localizedProperties?.otherTranslations,
+        ]);
 
         const posIpa = wordData.metadata as
             | {
@@ -437,6 +434,47 @@ export class DictionaryService {
         }
     }
 
+    /** Maximum number of distinct meanings kept per part of speech. */
+    private static readonly MAX_MEANINGS = 4;
+
+    /**
+     * De-duplicates a list of comma-separated translation strings into a single
+     * comma-separated string of at most {@link MAX_MEANINGS} distinct terms.
+     * Splits on commas, trims, and drops duplicates (case-insensitive) while
+     * preserving order.
+     */
+    private mergeMeanings(translations: (string | undefined | null)[]): string {
+        const seen = new Set<string>();
+        const terms: string[] = [];
+        for (const translation of translations) {
+            if (!translation) continue;
+            for (const part of translation.split(',')) {
+                const term = part.trim();
+                if (!term) continue;
+                const key = term.toLowerCase();
+                if (seen.has(key)) continue;
+                seen.add(key);
+                terms.push(term);
+                if (terms.length >= DictionaryService.MAX_MEANINGS) {
+                    return terms.join(', ');
+                }
+            }
+        }
+        return terms.join(', ');
+    }
+
+    /**
+     * Merges the localized (Vietnamese) translations of every sense within one
+     * part-of-speech group into a single, de-duplicated, comma-separated string
+     * of at most {@link MAX_MEANINGS} meanings. Each item is a distinct sense
+     * and its translation may itself be a comma-separated list.
+     */
+    private mergeTranslations(items: LangeekTranslationItemDto[]): string {
+        return this.mergeMeanings(
+            items.map((item) => item.localizedProperties?.translation),
+        );
+    }
+
     private mapToSearchResults(
         entries: LangeekWordEntryDto[],
     ): DictionarySearchResultDto[] {
@@ -452,12 +490,11 @@ export class DictionaryService {
                 )
                     continue;
 
-                const meaning =
-                    items[0].localizedProperties?.translation
-                        ?.trim()
-                        ?.replaceAll(',', ', ') ?? '';
+                const meaning = this.mergeTranslations(items);
 
-                const imageUrl = items[0].wordPhoto?.photo ?? '';
+                const imageUrl =
+                    items.find((it) => it.wordPhoto?.photo)?.wordPhoto?.photo ??
+                    '';
 
                 results.push({
                     langeekWordId: entry.id,
