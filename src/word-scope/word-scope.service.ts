@@ -110,6 +110,7 @@ export class WordScopeService {
                         lesson: { course: { userLoginId } },
                     },
                     orderBy: { word: 'asc' },
+                    include: { examples: { orderBy: { orderIndex: 'asc' } } },
                 }),
             CacheKind.CourseWords,
         );

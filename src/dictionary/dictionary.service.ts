@@ -20,6 +20,7 @@ import { CacheService } from '@/cache/cache.service';
 import { CacheKind } from '@/cache/cache-ttl';
 import { PrismaService } from '@/prisma/prisma.service';
 import * as cheerio from 'cheerio';
+import { v7 as uuidv7 } from 'uuid';
 
 // Initialize the Cambridge Dictionary scraper
 const dictionary = new DictionaryScraper();
@@ -246,7 +247,7 @@ export class DictionaryService {
     ): Promise<LangeekWordDetailsDto | null> {
         return this.cacheService.getOrSetGlobal(
             [
-                `dict:details:${encodeKeyPart(word)}:p${encodeKeyPart(partOfSpeech)}`,
+                `dict:details:v2:${encodeKeyPart(word)}:p${encodeKeyPart(partOfSpeech)}`,
             ],
             () => this.fetchLangeekWordDetails(word, partOfSpeech),
             CacheKind.Dictionary,
@@ -320,9 +321,17 @@ export class DictionaryService {
             }
             if (!wordData || typeof wordData !== 'object') return null;
 
-            const examples = (wordData.examples as { example: string }[]).map(
-                (e) => e.example,
-            );
+            const rawExamples = wordData.examples as
+                | { example?: string; exampleVoice?: string }[]
+                | undefined;
+            const examples = Array.isArray(rawExamples)
+                ? rawExamples
+                      .filter((e) => e?.example?.trim())
+                      .map((e) => ({
+                          text: e.example as string,
+                          audioUrl: e.exampleVoice || undefined,
+                      }))
+                : [];
 
             const metadata = wordData.metadata as
                 | { extraProperties?: { pos_ipa?: { american?: string } } }
@@ -337,7 +346,10 @@ export class DictionaryService {
                 pronunciation,
                 audioUrl: firstWord.wordVoice as string,
                 imageUrl: match.imageUrl,
+                imageThumbnailUrl: match.imageThumbnailUrl,
                 examples,
+                wordForms: match.otherForms ?? [],
+                secondPronunciation: match.secondPronunciation || undefined,
             };
         } catch (err: unknown) {
             const status = (err as { response?: { status?: number } })?.response
@@ -390,14 +402,27 @@ export class DictionaryService {
 
         const word = wordData.title as string;
 
-        const examples: string[] = [];
-        const exArr = wordData.examples as { example?: string }[] | undefined;
+        const examples: { text: string; audioUrl?: string }[] = [];
+        const seenExamples = new Set<string>();
+        const exArr = wordData.examples as
+            | { example?: string; exampleVoice?: string }[]
+            | undefined;
         if (Array.isArray(exArr)) {
             for (const ex of exArr) {
                 const text = ex?.example?.trim();
-                if (text && !examples.includes(text)) examples.push(text);
+                if (text && !seenExamples.has(text)) {
+                    seenExamples.add(text);
+                    examples.push({
+                        text,
+                        audioUrl: ex.exampleVoice || undefined,
+                    });
+                }
             }
         }
+
+        const wordPhotoThumb = wordData.wordPhoto as
+            | { photoThumbnail?: string }
+            | undefined;
 
         return {
             word,
@@ -406,7 +431,9 @@ export class DictionaryService {
             pronunciation,
             audioUrl,
             imageUrl,
+            imageThumbnailUrl: wordPhotoThumb?.photoThumbnail ?? '',
             examples,
+            wordForms: [],
         };
     }
 
@@ -496,12 +523,19 @@ export class DictionaryService {
                     items.find((it) => it.wordPhoto?.photo)?.wordPhoto?.photo ??
                     '';
 
+                const imageThumbnailUrl =
+                    items.find((it) => it.wordPhoto?.photoThumbnail)?.wordPhoto
+                        ?.photoThumbnail ?? '';
+
                 results.push({
                     langeekWordId: entry.id,
                     word: entry.entry,
                     partOfSpeech,
                     meaning,
                     imageUrl,
+                    imageThumbnailUrl,
+                    otherForms: entry.otherForms ?? [],
+                    secondPronunciation: entry.secondPronunciation ?? '',
                 });
             }
         }
@@ -654,21 +688,75 @@ export class DictionaryService {
                 return { status: 'skipped', reason: 'no_word_details' };
             }
 
+            // Cambridge UK/US audio + IPA. Best-effort: a Cambridge failure must
+            // NOT fail the sync (and hence must not fail the Kafka message).
+            let ukAudioUrl: string | undefined;
+            let usAudioUrl: string | undefined;
+            let ukIpa: string | undefined;
+            let usIpa: string | undefined;
+            try {
+                const pron = await this.getWordPronunciation(word);
+                ukAudioUrl =
+                    pron.pronunciation.find(
+                        (p) => p.type?.toLowerCase() === 'uk',
+                    )?.url || undefined;
+                usAudioUrl =
+                    pron.pronunciation.find(
+                        (p) => p.type?.toLowerCase() === 'us',
+                    )?.url || undefined;
+                const posNorm = (wordDetails.partOfSpeech || partOfSpeech)
+                    ?.trim()
+                    .toLowerCase();
+                const ipaEntry =
+                    (posNorm &&
+                        pron.ipas.find(
+                            (i) => i.partOfSpeech.toLowerCase() === posNorm,
+                        )) ||
+                    pron.ipas[0];
+                ukIpa = ipaEntry?.uk || undefined;
+                usIpa = ipaEntry?.us || undefined;
+            } catch {
+                // keep UK/US fields undefined on Cambridge failure
+            }
+
             const example = wordDetails.examples?.length
-                ? JSON.stringify(wordDetails.examples)
+                ? JSON.stringify(wordDetails.examples.map((e) => e.text))
                 : null;
 
-            await this.prisma.word.update({
-                where: { id: wordId },
-                data: {
-                    meaning: wordDetails.meaning || undefined,
-                    pronunciation: wordDetails.pronunciation || undefined,
-                    partOfSpeech: wordDetails.partOfSpeech || undefined,
-                    audioUrl: wordDetails.audioUrl || undefined,
-                    imageUrl: wordDetails.imageUrl || undefined,
-                    example,
-                },
-            });
+            const wordForms = wordDetails.wordForms?.length
+                ? wordDetails.wordForms
+                : undefined;
+
+            await this.prisma.$transaction([
+                this.prisma.word.update({
+                    where: { id: wordId },
+                    data: {
+                        meaning: wordDetails.meaning || undefined,
+                        pronunciation: wordDetails.pronunciation || undefined,
+                        partOfSpeech: wordDetails.partOfSpeech || undefined,
+                        audioUrl: wordDetails.audioUrl || undefined,
+                        imageUrl: wordDetails.imageUrl || undefined,
+                        imageThumbnailUrl:
+                            wordDetails.imageThumbnailUrl || undefined,
+                        ukAudioUrl,
+                        usAudioUrl,
+                        ukIpa,
+                        usIpa,
+                        wordForms,
+                        example,
+                    },
+                }),
+                this.prisma.wordExample.deleteMany({ where: { wordId } }),
+                this.prisma.wordExample.createMany({
+                    data: wordDetails.examples.map((e, index) => ({
+                        id: uuidv7(),
+                        wordId,
+                        text: e.text,
+                        audioUrl: e.audioUrl || null,
+                        orderIndex: index,
+                    })),
+                }),
+            ]);
 
             const owner = await this.prisma.word.findUnique({
                 where: { id: wordId },

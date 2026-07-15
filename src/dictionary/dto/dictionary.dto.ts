@@ -198,6 +198,25 @@ export class DictionarySearchResultDto {
         example: 'https://cdn.langeek.co/photo/48239/original/?type=jpeg',
     })
     imageUrl: string;
+
+    @ApiProperty({
+        description: 'URL to thumbnail image, or empty if none',
+        example: 'https://cdn.langeek.co/photo/48239/small/?type=jpeg',
+    })
+    imageThumbnailUrl: string;
+
+    @ApiProperty({
+        type: [String],
+        description: 'Other inflected forms of the word',
+        example: ['accumulates', 'accumulated', 'accumulating'],
+    })
+    otherForms: string[];
+
+    @ApiProperty({
+        description: 'Secondary (e.g. British) pronunciation, or empty if none',
+        example: 'əkˈjuːmjʊleɪt',
+    })
+    secondPronunciation: string;
 }
 
 /**
@@ -269,13 +288,36 @@ export class LangeekWordDetailsDto {
     imageUrl: string;
 
     @ApiProperty({
-        type: [String],
-        description: 'Example sentences in English',
+        type: [Object],
+        description:
+            'Example sentences in English with optional per-example TTS',
         example: [
-            'The PlayStation 5 has backward compatibility, so I can still play my PlayStation 4 games on it.',
+            {
+                text: 'The PlayStation 5 has backward compatibility, so I can still play my PlayStation 4 games on it.',
+                audioUrl: 'https://tts.langeek.co/read?text=...',
+            },
         ],
     })
-    examples: string[];
+    examples: { text: string; audioUrl?: string }[];
+
+    @ApiProperty({
+        type: [String],
+        description: 'Other inflected forms of the word',
+        example: ['accumulates', 'accumulated', 'accumulating'],
+    })
+    wordForms: string[];
+
+    @ApiProperty({
+        description: 'URL to thumbnail image, or empty if none',
+        example: 'https://cdn.langeek.co/photo/48239/small/?type=jpeg',
+    })
+    imageThumbnailUrl: string;
+
+    @ApiPropertyOptional({
+        description: 'Secondary (e.g. British) pronunciation',
+        example: 'əkˈjuːmjʊleɪt',
+    })
+    secondPronunciation?: string;
 }
 
 /** Word photo from Langeek API. */

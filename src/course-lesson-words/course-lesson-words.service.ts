@@ -85,7 +85,19 @@ export class CourseLessonWordsService {
                 lessonId: lessonId,
                 imageUrl: payload.imageUrl,
                 example: payload.example,
+                examples: payload.examples?.length
+                    ? {
+                          create: payload.examples.map((e, index) => ({
+                              id: uuidv7(),
+                              text: e.text,
+                              translation: e.translation,
+                              audioUrl: e.audioUrl,
+                              orderIndex: e.orderIndex ?? index,
+                          })),
+                      }
+                    : undefined,
             },
+            include: { examples: { orderBy: { orderIndex: 'asc' } } },
         });
         await this.cacheService.invalidateUser(userLoginId);
         return word;
@@ -156,6 +168,9 @@ export class CourseLessonWordsService {
                             },
                         },
                     },
+                    include: {
+                        examples: { orderBy: { orderIndex: 'asc' } },
+                    },
                 });
 
                 if (!word) {
@@ -178,6 +193,8 @@ export class CourseLessonWordsService {
         // Verify word exists
         await this.getWordById(userLoginId, courseId, lessonId, wordId);
 
+        const { examples, ...scalarData } = payload;
+
         const word = await this.prisma.word.update({
             where: {
                 id: wordId,
@@ -189,7 +206,25 @@ export class CourseLessonWordsService {
                     },
                 },
             },
-            data: payload,
+            data: {
+                ...scalarData,
+                // When examples are provided, replace the existing set.
+                ...(examples
+                    ? {
+                          examples: {
+                              deleteMany: {},
+                              create: examples.map((e, index) => ({
+                                  id: uuidv7(),
+                                  text: e.text,
+                                  translation: e.translation,
+                                  audioUrl: e.audioUrl,
+                                  orderIndex: e.orderIndex ?? index,
+                              })),
+                          },
+                      }
+                    : {}),
+            },
+            include: { examples: { orderBy: { orderIndex: 'asc' } } },
         });
         await this.cacheService.invalidateUser(userLoginId);
         return word;
@@ -281,6 +316,7 @@ export class CourseLessonWordsService {
                 },
             },
             data: { lessonId: targetLessonId },
+            include: { examples: { orderBy: { orderIndex: 'asc' } } },
         });
         await this.cacheService.invalidateUser(userLoginId);
         return word;

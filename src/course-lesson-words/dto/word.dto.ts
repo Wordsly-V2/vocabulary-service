@@ -1,17 +1,58 @@
 import {
     ArrayMinSize,
     IsArray,
+    IsInt,
     IsNotEmpty,
     IsOptional,
     IsString,
     IsUrl,
     IsUUID,
+    Min,
     MinLength,
     ValidateIf,
     ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+
+/** Input for manually authoring a single example sentence on a word. */
+export class CreateWordExampleDto {
+    @ApiProperty({
+        description: 'Example sentence text',
+        example: 'She waved hello to her neighbour.',
+    })
+    @IsString()
+    @IsNotEmpty()
+    text: string;
+
+    @ApiPropertyOptional({
+        description: 'Translation of the example sentence',
+        example: 'Cô ấy vẫy tay chào hàng xóm.',
+    })
+    @IsOptional()
+    @IsString()
+    translation?: string;
+
+    @ApiPropertyOptional({
+        description: 'Audio (TTS) URL for the example sentence',
+        example: 'https://example.com/audio/example.mp3',
+    })
+    @IsOptional()
+    @IsString()
+    @ValidateIf((_, v) => v != null && v !== '')
+    @IsUrl()
+    audioUrl?: string;
+
+    @ApiPropertyOptional({
+        description: 'Ordering index of the example (defaults to array order)',
+        example: 0,
+    })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(0)
+    orderIndex?: number;
+}
 
 export class CreateWordDto {
     @ApiProperty({
@@ -68,6 +109,16 @@ export class CreateWordDto {
     @IsString()
     @IsOptional()
     example?: string;
+
+    @ApiPropertyOptional({
+        description: 'Example sentences for manual authoring',
+        type: [CreateWordExampleDto],
+    })
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CreateWordExampleDto)
+    examples?: CreateWordExampleDto[];
 }
 
 export class UpdateWordDto {
@@ -125,6 +176,17 @@ export class UpdateWordDto {
     @IsString()
     @IsOptional()
     example?: string;
+
+    @ApiPropertyOptional({
+        description:
+            'Example sentences for manual authoring (replaces existing examples when provided)',
+        type: [CreateWordExampleDto],
+    })
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CreateWordExampleDto)
+    examples?: CreateWordExampleDto[];
 }
 
 export class BulkCreateWordsDto {
@@ -181,6 +243,39 @@ export class BulkDeleteWordsDto {
     wordIds: string[];
 }
 
+/** A single example sentence attached to a word. */
+export class WordExampleDto {
+    @ApiProperty({
+        description: 'Example ID',
+        example: '01936c1e-1234-7890-abcd-ef1234567890',
+    })
+    id: string;
+
+    @ApiProperty({
+        description: 'Example sentence text',
+        example: 'She waved hello to her neighbour.',
+    })
+    text: string;
+
+    @ApiPropertyOptional({
+        description: 'Translation of the example sentence',
+        nullable: true,
+    })
+    translation: string | null;
+
+    @ApiPropertyOptional({
+        description: 'Audio (TTS) URL for the example sentence',
+        nullable: true,
+    })
+    audioUrl: string | null;
+
+    @ApiProperty({
+        description: 'Ordering index of the example',
+        example: 0,
+    })
+    orderIndex: number;
+}
+
 export class WordResponseDto {
     @ApiProperty({
         description: 'Word ID',
@@ -217,6 +312,62 @@ export class WordResponseDto {
         example: 'https://example.com/audio/hello.mp3',
     })
     audioUrl: string | null;
+
+    @ApiPropertyOptional({
+        description: 'URL to word image',
+        nullable: true,
+    })
+    imageUrl: string | null;
+
+    @ApiPropertyOptional({
+        description:
+            'Legacy JSON-stringified array of example sentences (kept for compatibility)',
+        nullable: true,
+    })
+    example: string | null;
+
+    @ApiPropertyOptional({
+        description: 'UK audio pronunciation URL (Cambridge)',
+        nullable: true,
+    })
+    ukAudioUrl: string | null;
+
+    @ApiPropertyOptional({
+        description: 'US audio pronunciation URL (Cambridge)',
+        nullable: true,
+    })
+    usAudioUrl: string | null;
+
+    @ApiPropertyOptional({
+        description: 'UK IPA transcription',
+        nullable: true,
+    })
+    ukIpa: string | null;
+
+    @ApiPropertyOptional({
+        description: 'US IPA transcription',
+        nullable: true,
+    })
+    usIpa: string | null;
+
+    @ApiPropertyOptional({
+        description: 'URL to thumbnail image',
+        nullable: true,
+    })
+    imageThumbnailUrl: string | null;
+
+    @ApiPropertyOptional({
+        description: 'Other inflected forms of the word',
+        type: [String],
+        nullable: true,
+    })
+    wordForms: string[] | null;
+
+    @ApiProperty({
+        description: 'Example sentences attached to the word',
+        type: [WordExampleDto],
+    })
+    examples: WordExampleDto[];
 
     @ApiProperty({
         description: 'Lesson ID',
