@@ -179,9 +179,6 @@ export class CourseLessonsService {
                             orderBy: {
                                 word: 'asc',
                             },
-                            include: {
-                                examples: { orderBy: { orderIndex: 'asc' } },
-                            },
                         },
                     },
                 });

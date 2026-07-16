@@ -719,44 +719,38 @@ export class DictionaryService {
                 // keep UK/US fields undefined on Cambridge failure
             }
 
+            // Structured examples are stored as a JSON array in `word.example`:
+            // [{ text, audioUrl? }]. Preserves per-example audio from Langeek.
             const example = wordDetails.examples?.length
-                ? JSON.stringify(wordDetails.examples.map((e) => e.text))
+                ? JSON.stringify(
+                      wordDetails.examples.map((e) => ({
+                          text: e.text,
+                          ...(e.audioUrl ? { audioUrl: e.audioUrl } : {}),
+                      })),
+                  )
                 : null;
 
             const wordForms = wordDetails.wordForms?.length
                 ? wordDetails.wordForms
                 : undefined;
 
-            await this.prisma.$transaction([
-                this.prisma.word.update({
-                    where: { id: wordId },
-                    data: {
-                        meaning: wordDetails.meaning || undefined,
-                        pronunciation: wordDetails.pronunciation || undefined,
-                        partOfSpeech: wordDetails.partOfSpeech || undefined,
-                        audioUrl: wordDetails.audioUrl || undefined,
-                        imageUrl: wordDetails.imageUrl || undefined,
-                        imageThumbnailUrl:
-                            wordDetails.imageThumbnailUrl || undefined,
-                        ukAudioUrl,
-                        usAudioUrl,
-                        ukIpa,
-                        usIpa,
-                        wordForms,
-                        example,
-                    },
-                }),
-                this.prisma.wordExample.deleteMany({ where: { wordId } }),
-                this.prisma.wordExample.createMany({
-                    data: wordDetails.examples.map((e, index) => ({
-                        id: uuidv7(),
-                        wordId,
-                        text: e.text,
-                        audioUrl: e.audioUrl || null,
-                        orderIndex: index,
-                    })),
-                }),
-            ]);
+            await this.prisma.word.update({
+                where: { id: wordId },
+                data: {
+                    meaning: wordDetails.meaning || undefined,
+                    pronunciation: wordDetails.pronunciation || undefined,
+                    partOfSpeech: wordDetails.partOfSpeech || undefined,
+                    audioUrl: wordDetails.audioUrl || undefined,
+                    imageUrl: wordDetails.imageUrl || undefined,
+                    imageThumbnailUrl: wordDetails.imageThumbnailUrl || undefined,
+                    ukAudioUrl,
+                    usAudioUrl,
+                    ukIpa,
+                    usIpa,
+                    wordForms,
+                    example,
+                },
+            });
 
             const owner = await this.prisma.word.findUnique({
                 where: { id: wordId },

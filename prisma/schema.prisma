@@ -67,24 +67,9 @@ model Word {
   lessonId    String  @db.Uuid
   lesson      Lesson  @relation(fields: [lessonId], references: [id])
 
-  examples    WordExample[]
-
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([lessonId])
   @@map("words")
-}
-
-model WordExample {
-  id          String  @id @db.Uuid
-  wordId      String  @db.Uuid
-  word        Word    @relation(fields: [wordId], references: [id], onDelete: Cascade)
-  text        String
-  translation String?
-  audioUrl    String?
-  orderIndex  Int     @default(0)
-
-  @@index([wordId])
-  @@map("word_examples")
 }

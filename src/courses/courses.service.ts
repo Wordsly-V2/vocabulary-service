@@ -185,11 +185,6 @@ export class CoursesService {
                             include: {
                                 words: {
                                     orderBy: { word: 'asc' },
-                                    include: {
-                                        examples: {
-                                            orderBy: { orderIndex: 'asc' },
-                                        },
-                                    },
                                 },
                             },
                         },
@@ -255,7 +250,6 @@ export class CoursesService {
                     orderBy: {
                         word: 'asc',
                     },
-                    include: { examples: { orderBy: { orderIndex: 'asc' } } },
                 }),
             CacheKind.CourseWords,
         );
