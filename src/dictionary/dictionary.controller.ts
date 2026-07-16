@@ -3,6 +3,7 @@ import {
     Body,
     Controller,
     Get,
+    NotFoundException,
     Param,
     ParseUUIDPipe,
     Post,
@@ -18,9 +19,11 @@ import {
 } from '@nestjs/swagger';
 import { DictionaryService } from './dictionary.service';
 import {
+    CreateSyncJobResponseDto,
     DictionarySearchResultDto,
     LangeekFilter,
     LangeekWordDetailsDto,
+    SyncJobStatusDto,
     SyncWordsLangeekDto,
     UserWordSearchResultDto,
     WordPronunciationResponseDto,
@@ -187,5 +190,57 @@ export class DictionaryController {
             limit: dto.limit,
         };
         return this.dictionaryService.getWordsForSyncFilters(filters);
+    }
+
+    @Post('sync-words-langeek/jobs')
+    @ApiOperation({
+        summary: 'Create a sync job (internal)',
+        description:
+            'Counts the words matching the filters and creates a progress record. The API gateway calls this before enqueueing, then passes the returned jobId in each Kafka message so progress can be polled.',
+    })
+    @ApiResponse({
+        status: 201,
+        description: 'Created job (jobId, total, status)',
+        type: CreateSyncJobResponseDto,
+    })
+    async createSyncJob(
+        @Body() dto: SyncWordsLangeekDto,
+    ): Promise<CreateSyncJobResponseDto> {
+        return this.dictionaryService.createSyncJob({
+            userId: dto.userId,
+            courseId: dto.courseId,
+            lessonId: dto.lessonId,
+            wordId: dto.wordId,
+        });
+    }
+
+    @Get('sync-words-langeek/jobs/:jobId')
+    @ApiOperation({
+        summary: 'Get sync job progress (internal)',
+        description:
+            'Returns how many words are done/remaining and whether the job is still in progress or completed.',
+    })
+    @ApiParam({ name: 'jobId', description: 'Sync job identifier' })
+    @ApiQuery({
+        name: 'userLoginId',
+        required: false,
+        description:
+            'When provided, the job is only returned if it belongs to this user.',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Sync job progress',
+        type: SyncJobStatusDto,
+    })
+    @ApiResponse({ status: 404, description: 'Job not found' })
+    async getSyncJob(
+        @Param('jobId', new ParseUUIDPipe()) jobId: string,
+        @Query('userLoginId') userLoginId?: string,
+    ): Promise<SyncJobStatusDto> {
+        const job = await this.dictionaryService.getSyncJob(jobId, userLoginId);
+        if (!job) {
+            throw new NotFoundException('Sync job not found');
+        }
+        return job;
     }
 }

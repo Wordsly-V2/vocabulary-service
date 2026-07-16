@@ -14,6 +14,8 @@ export interface SyncWordLangeekPayload {
     wordId: string;
     word: string;
     partOfSpeech: string;
+    /** Sync job this word belongs to, used to track progress. */
+    jobId?: string;
 }
 
 /**
@@ -32,6 +34,10 @@ export class DictionaryConsumer {
             payload.wordId,
             payload.word,
             payload.partOfSpeech,
+        );
+        await this.dictionaryService.recordSyncProgress(
+            payload.jobId,
+            result.status,
         );
         await commitCurrentMessage(context);
         return result;

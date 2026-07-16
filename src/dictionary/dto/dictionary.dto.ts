@@ -57,6 +57,57 @@ export class SyncWordsLangeekDto {
     limit?: number;
 }
 
+/** Lifecycle status of a word sync job. */
+export type SyncJobStatus = 'in_progress' | 'completed';
+
+/** Response after creating a sync job (returns the job id and total word count). */
+export class CreateSyncJobResponseDto {
+    @ApiProperty({ description: 'Sync job identifier used to poll progress' })
+    jobId: string;
+
+    @ApiProperty({ description: 'Total number of words that will be processed' })
+    total: number;
+
+    @ApiProperty({
+        enum: ['in_progress', 'completed'],
+        description: 'completed immediately when there are no words to sync',
+    })
+    status: 'in_progress' | 'completed';
+}
+
+/** Progress snapshot for a sync job. */
+export class SyncJobStatusDto {
+    @ApiProperty()
+    jobId: string;
+
+    @ApiProperty({ enum: ['in_progress', 'completed'] })
+    status: 'in_progress' | 'completed';
+
+    @ApiProperty({ description: 'Total words in the job' })
+    total: number;
+
+    @ApiProperty({ description: 'Words processed so far (updated + skipped + errored)' })
+    done: number;
+
+    @ApiProperty({ description: 'Words still to process' })
+    remaining: number;
+
+    @ApiProperty({ description: 'Words successfully updated' })
+    updated: number;
+
+    @ApiProperty({ description: 'Words skipped (no dictionary details)' })
+    skipped: number;
+
+    @ApiProperty({ description: 'Words that failed processing' })
+    errored: number;
+
+    @ApiProperty({ description: 'ISO timestamp when the job was created' })
+    createdAt: string;
+
+    @ApiProperty({ description: 'ISO timestamp of the last progress update' })
+    updatedAt: string;
+}
+
 /** Single pronunciation entry (type + URL). */
 export class PronunciationItemDto {
     @ApiProperty({ example: 'uk' })

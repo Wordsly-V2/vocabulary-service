@@ -11,6 +11,8 @@ import type {
     LangeekWordDetailsDto,
     LangeekWordEntryDto,
     ProcessWordSyncResultDto,
+    SyncJobStatus,
+    SyncJobStatusDto,
     SyncWordsLangeekDto,
     UserWordSearchResultDto,
     WordPronunciationResponseDto,
@@ -629,19 +631,25 @@ export class DictionaryService {
     /** Default page size for getWordsForSyncFilters to avoid loading too many rows. */
     private static readonly SYNC_WORDS_PAGE_SIZE = 500;
 
-    /**
-     * Returns a page of words matching the given filters (cursor-based pagination).
-     * Used by the API gateway to produce one Kafka message per word without loading all rows.
-     */
-    async getWordsForSyncFilters(
-        filters?: SyncWordsLangeekDto,
-    ): Promise<GetWordsForSyncFiltersResponseDto> {
-        type WordWhere = {
+    /** How long a sync-job progress record lives in Redis. */
+    private static readonly SYNC_JOB_TTL_SECONDS = 24 * 60 * 60;
+
+    /** Redis key for a sync job's progress hash (global; survives per-user invalidation). */
+    private static syncJobKey(jobId: string): string {
+        return `vocab:g:sync-job:${jobId}`;
+    }
+
+    /** Builds the Prisma `where` for word filters shared by count + pagination. */
+    private buildWordWhere(filters?: SyncWordsLangeekDto): {
+        id?: string;
+        lessonId?: string;
+        lesson?: { courseId?: string; course?: { userLoginId?: string } };
+    } {
+        const where: {
             id?: string;
             lessonId?: string;
             lesson?: { courseId?: string; course?: { userLoginId?: string } };
-        };
-        const where: WordWhere = {};
+        } = {};
 
         if (filters?.wordId) {
             where.id = filters.wordId;
@@ -658,6 +666,123 @@ export class DictionaryService {
                 where.lesson.course = { userLoginId: filters.userId };
             }
         }
+
+        return where;
+    }
+
+    /**
+     * Creates a sync-job progress record in Redis, counting the total words that
+     * match the filters. Returns the job id used to poll progress. When there are
+     * no words the job is marked completed immediately.
+     */
+    async createSyncJob(
+        filters?: SyncWordsLangeekDto,
+    ): Promise<{ jobId: string; total: number; status: SyncJobStatus }> {
+        const jobId = uuidv7();
+        const where = this.buildWordWhere(filters);
+        const total = await this.prisma.word.count({
+            where: Object.keys(where).length > 0 ? where : undefined,
+        });
+        const status: SyncJobStatus = total > 0 ? 'in_progress' : 'completed';
+        const now = new Date().toISOString();
+
+        await this.cacheService.hInit(
+            DictionaryService.syncJobKey(jobId),
+            {
+                jobId,
+                userId: filters?.userId ?? '',
+                total,
+                done: 0,
+                updated: 0,
+                skipped: 0,
+                errored: 0,
+                status,
+                createdAt: now,
+                updatedAt: now,
+            },
+            DictionaryService.SYNC_JOB_TTL_SECONDS,
+        );
+
+        return { jobId, total, status };
+    }
+
+    /**
+     * Records the outcome of processing one word against its sync job. Atomically
+     * bumps the processed counter and flips the job to `completed` once every word
+     * has been handled. No-op when jobId is absent or Redis is disabled.
+     */
+    async recordSyncProgress(
+        jobId: string | undefined,
+        status: 'updated' | 'skipped' | 'error',
+    ): Promise<void> {
+        if (!jobId) {
+            return;
+        }
+        const key = DictionaryService.syncJobKey(jobId);
+        const field = status === 'error' ? 'errored' : status;
+
+        const done = await this.cacheService.hIncr(key, 'done', 1);
+        await this.cacheService.hIncr(key, field, 1);
+        if (done === null) {
+            return; // Redis disabled — nothing to update.
+        }
+
+        const data = await this.cacheService.hGetAll(key);
+        const total = Number(data?.total ?? 0);
+        const now = new Date().toISOString();
+        if (total > 0 && done >= total) {
+            await this.cacheService.hSet(key, {
+                status: 'completed',
+                updatedAt: now,
+            });
+        } else {
+            await this.cacheService.hSet(key, { updatedAt: now });
+        }
+    }
+
+    /**
+     * Returns a sync job's progress, or null when it doesn't exist (or has
+     * expired). When `requesterUserId` is provided, only the job's owner can read
+     * it (returns null otherwise).
+     */
+    async getSyncJob(
+        jobId: string,
+        requesterUserId?: string,
+    ): Promise<SyncJobStatusDto | null> {
+        const data = await this.cacheService.hGetAll(
+            DictionaryService.syncJobKey(jobId),
+        );
+        if (!data) {
+            return null;
+        }
+        if (requesterUserId && data.userId && data.userId !== requesterUserId) {
+            return null;
+        }
+
+        const total = Number(data.total ?? 0);
+        const done = Number(data.done ?? 0);
+        return {
+            jobId,
+            status: (data.status as SyncJobStatus) ?? 'in_progress',
+            total,
+            done,
+            remaining: Math.max(0, total - done),
+            updated: Number(data.updated ?? 0),
+            skipped: Number(data.skipped ?? 0),
+            errored: Number(data.errored ?? 0),
+            createdAt: data.createdAt ?? '',
+            updatedAt: data.updatedAt ?? '',
+        };
+    }
+
+    /**
+     * Returns a page of words matching the given filters (cursor-based pagination).
+     * Used by the API gateway to produce one Kafka message per word without loading all rows.
+     */
+    async getWordsForSyncFilters(
+        filters?: SyncWordsLangeekDto,
+    ): Promise<GetWordsForSyncFiltersResponseDto> {
+        const where = this.buildWordWhere(filters);
 
         const pageSize = Math.min(
             filters?.limit ?? DictionaryService.SYNC_WORDS_PAGE_SIZE,

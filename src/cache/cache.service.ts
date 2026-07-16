@@ -116,6 +116,88 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         return value;
     }
 
+    /**
+     * Creates/overwrites a hash at `key` with the given fields and sets a TTL.
+     * No-op (returns false) when Redis is disabled.
+     */
+    async hInit(
+        key: string,
+        fields: Record<string, string | number>,
+        ttlSeconds: number,
+    ): Promise<boolean> {
+        if (!this.client) {
+            return false;
+        }
+        try {
+            const flat: (string | number)[] = [];
+            for (const [k, v] of Object.entries(fields)) {
+                flat.push(k, v);
+            }
+            await this.client
+                .multi()
+                .hset(key, ...flat)
+                .expire(key, ttlSeconds)
+                .exec();
+            return true;
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.warn(`hInit failed for ${key}: ${message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Atomically increments a hash field, returning the new value (or null when
+     * Redis is disabled or the op fails).
+     */
+    async hIncr(key: string, field: string, by = 1): Promise<number | null> {
+        if (!this.client) {
+            return null;
+        }
+        try {
+            return await this.client.hincrby(key, field, by);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.warn(`hIncr failed for ${key}.${field}: ${message}`);
+            return null;
+        }
+    }
+
+    /** Sets one or more hash fields. No-op when Redis is disabled. */
+    async hSet(
+        key: string,
+        fields: Record<string, string | number>,
+    ): Promise<void> {
+        if (!this.client) {
+            return;
+        }
+        try {
+            const flat: (string | number)[] = [];
+            for (const [k, v] of Object.entries(fields)) {
+                flat.push(k, v);
+            }
+            await this.client.hset(key, ...flat);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.warn(`hSet failed for ${key}: ${message}`);
+        }
+    }
+
+    /** Reads all fields of a hash, or null when missing / Redis disabled. */
+    async hGetAll(key: string): Promise<Record<string, string> | null> {
+        if (!this.client) {
+            return null;
+        }
+        try {
+            const data = await this.client.hgetall(key);
+            return data && Object.keys(data).length > 0 ? data : null;
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.warn(`hGetAll failed for ${key}: ${message}`);
+            return null;
+        }
+    }
+
     async invalidateUser(userLoginId: string): Promise<void> {
         if (!this.client) {
             return;
