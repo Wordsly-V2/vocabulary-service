@@ -62,7 +62,6 @@ model Word {
   ukIpa             String?
   usIpa             String?
   imageThumbnailUrl String?
-  wordForms         Json?
 
   lessonId    String  @db.Uuid
   lesson      Lesson  @relation(fields: [lessonId], references: [id])

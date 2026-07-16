@@ -206,13 +206,6 @@ export class DictionarySearchResultDto {
     imageThumbnailUrl: string;
 
     @ApiProperty({
-        type: [String],
-        description: 'Other inflected forms of the word',
-        example: ['accumulates', 'accumulated', 'accumulating'],
-    })
-    otherForms: string[];
-
-    @ApiProperty({
         description: 'Secondary (e.g. British) pronunciation, or empty if none',
         example: 'əkˈjuːmjʊleɪt',
     })
@@ -299,13 +292,6 @@ export class LangeekWordDetailsDto {
         ],
     })
     examples: { text: string; audioUrl?: string }[];
-
-    @ApiProperty({
-        type: [String],
-        description: 'Other inflected forms of the word',
-        example: ['accumulates', 'accumulated', 'accumulating'],
-    })
-    wordForms: string[];
 
     @ApiProperty({
         description: 'URL to thumbnail image, or empty if none',
@@ -415,9 +401,6 @@ export class LangeekWordEntryDto {
         },
     })
     translations: Record<string, LangeekTranslationItemDto[]>;
-
-    @ApiProperty({ type: [String] })
-    otherForms: string[];
 
     @ApiProperty({ type: [String] })
     localizedData: string[];

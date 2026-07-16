@@ -348,7 +348,6 @@ export class DictionaryService {
                 imageUrl: match.imageUrl,
                 imageThumbnailUrl: match.imageThumbnailUrl,
                 examples,
-                wordForms: match.otherForms ?? [],
                 secondPronunciation: match.secondPronunciation || undefined,
             };
         } catch (err: unknown) {
@@ -433,7 +432,6 @@ export class DictionaryService {
             imageUrl,
             imageThumbnailUrl: wordPhotoThumb?.photoThumbnail ?? '',
             examples,
-            wordForms: [],
         };
     }
 
@@ -534,7 +532,6 @@ export class DictionaryService {
                     meaning,
                     imageUrl,
                     imageThumbnailUrl,
-                    otherForms: entry.otherForms ?? [],
                     secondPronunciation: entry.secondPronunciation ?? '',
                 });
             }
@@ -730,10 +727,6 @@ export class DictionaryService {
                   )
                 : null;
 
-            const wordForms = wordDetails.wordForms?.length
-                ? wordDetails.wordForms
-                : undefined;
-
             await this.prisma.word.update({
                 where: { id: wordId },
                 data: {
@@ -747,7 +740,6 @@ export class DictionaryService {
                     usAudioUrl,
                     ukIpa,
                     usIpa,
-                    wordForms,
                     example,
                 },
             });

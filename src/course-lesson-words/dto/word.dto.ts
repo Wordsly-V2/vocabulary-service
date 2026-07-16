@@ -269,13 +269,6 @@ export class WordResponseDto {
     })
     imageThumbnailUrl: string | null;
 
-    @ApiPropertyOptional({
-        description: 'Other inflected forms of the word',
-        type: [String],
-        nullable: true,
-    })
-    wordForms: string[] | null;
-
     @ApiProperty({
         description: 'Lesson ID',
         example: '01936c1e-1234-7890-abcd-ef1234567890',
