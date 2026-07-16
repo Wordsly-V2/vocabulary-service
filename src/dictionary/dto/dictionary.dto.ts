@@ -234,9 +234,15 @@ export class LangeekWordDataDto {
 
     @ApiPropertyOptional({
         type: [Object],
-        description: 'Example items with example and exampleVoice',
+        description:
+            'Example items with example, exampleVoice and localized translation',
     })
-    examples?: { id?: number; example?: string; exampleVoice?: string }[];
+    examples?: {
+        id?: number;
+        example?: string;
+        exampleVoice?: string;
+        localizedProperties?: { example?: string };
+    }[];
 
     @ApiPropertyOptional({ description: 'TTS URL for the word' })
     titleVoice?: string;
@@ -283,15 +289,17 @@ export class LangeekWordDetailsDto {
     @ApiProperty({
         type: [Object],
         description:
-            'Example sentences in English with optional per-example TTS',
+            'Example sentences in English with optional per-example TTS and localized (Vietnamese) translation',
         example: [
             {
                 text: 'The PlayStation 5 has backward compatibility, so I can still play my PlayStation 4 games on it.',
                 audioUrl: 'https://tts.langeek.co/read?text=...',
+                translation:
+                    'PlayStation 5 có **khả năng tương thích ngược**, nên tôi vẫn có thể chơi các game PlayStation 4 trên đó.',
             },
         ],
     })
-    examples: { text: string; audioUrl?: string }[];
+    examples: { text: string; audioUrl?: string; translation?: string }[];
 
     @ApiProperty({
         description: 'URL to thumbnail image, or empty if none',

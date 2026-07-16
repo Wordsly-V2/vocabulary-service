@@ -322,7 +322,11 @@ export class DictionaryService {
             if (!wordData || typeof wordData !== 'object') return null;
 
             const rawExamples = wordData.examples as
-                | { example?: string; exampleVoice?: string }[]
+                | {
+                      example?: string;
+                      exampleVoice?: string;
+                      localizedProperties?: { example?: string };
+                  }[]
                 | undefined;
             const examples = Array.isArray(rawExamples)
                 ? rawExamples
@@ -330,6 +334,9 @@ export class DictionaryService {
                       .map((e) => ({
                           text: e.example as string,
                           audioUrl: e.exampleVoice || undefined,
+                          translation:
+                              e.localizedProperties?.example?.trim() ||
+                              undefined,
                       }))
                 : [];
 
@@ -401,10 +408,18 @@ export class DictionaryService {
 
         const word = wordData.title as string;
 
-        const examples: { text: string; audioUrl?: string }[] = [];
+        const examples: {
+            text: string;
+            audioUrl?: string;
+            translation?: string;
+        }[] = [];
         const seenExamples = new Set<string>();
         const exArr = wordData.examples as
-            | { example?: string; exampleVoice?: string }[]
+            | {
+                  example?: string;
+                  exampleVoice?: string;
+                  localizedProperties?: { example?: string };
+              }[]
             | undefined;
         if (Array.isArray(exArr)) {
             for (const ex of exArr) {
@@ -414,6 +429,9 @@ export class DictionaryService {
                     examples.push({
                         text,
                         audioUrl: ex.exampleVoice || undefined,
+                        translation:
+                            ex.localizedProperties?.example?.trim() ||
+                            undefined,
                     });
                 }
             }
@@ -723,6 +741,9 @@ export class DictionaryService {
                       wordDetails.examples.map((e) => ({
                           text: e.text,
                           ...(e.audioUrl ? { audioUrl: e.audioUrl } : {}),
+                          ...(e.translation
+                              ? { translation: e.translation }
+                              : {}),
                       })),
                   )
                 : null;
@@ -735,7 +756,8 @@ export class DictionaryService {
                     partOfSpeech: wordDetails.partOfSpeech || undefined,
                     audioUrl: wordDetails.audioUrl || undefined,
                     imageUrl: wordDetails.imageUrl || undefined,
-                    imageThumbnailUrl: wordDetails.imageThumbnailUrl || undefined,
+                    imageThumbnailUrl:
+                        wordDetails.imageThumbnailUrl || undefined,
                     ukAudioUrl,
                     usAudioUrl,
                     ukIpa,
