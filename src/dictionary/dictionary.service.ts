@@ -18,6 +18,11 @@ import type {
     WordPronunciationResponseDto,
 } from './dto/dictionary.dto';
 import { cacheKeys } from '@/cache/cache-keys';
+import {
+    mergeWordExamples,
+    parseWordExamples,
+    serializeWordExamples,
+} from '@/common/word-example.util';
 import { CacheService } from '@/cache/cache.service';
 import { CacheKind } from '@/cache/cache-ttl';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -860,18 +865,33 @@ export class DictionaryService {
             }
 
             // Structured examples are stored as a JSON array in `word.example`:
-            // [{ text, audioUrl? }]. Preserves per-example audio from Langeek.
-            const example = wordDetails.examples?.length
-                ? JSON.stringify(
-                      wordDetails.examples.map((e) => ({
-                          text: e.text,
-                          ...(e.audioUrl ? { audioUrl: e.audioUrl } : {}),
-                          ...(e.translation
-                              ? { translation: e.translation }
-                              : {}),
-                      })),
-                  )
-                : null;
+            // [{ text, audioUrl?, translation? }]. Preserves per-example audio
+            // from Langeek.
+            //
+            // Merge rather than replace, and fall back to `undefined` (leave the
+            // column alone) rather than `null`. Writing `null` here used to wipe
+            // seeded examples whenever Langeek had no matching sense — the same
+            // reason every other field below uses `|| undefined`.
+            // Also carries the owner, so this replaces the post-update lookup
+            // that only existed to resolve the cache key.
+            const current = await this.prisma.word.findUnique({
+                where: { id: wordId },
+                select: {
+                    example: true,
+                    lesson: {
+                        select: {
+                            course: { select: { userLoginId: true } },
+                        },
+                    },
+                },
+            });
+            const mergedExamples = mergeWordExamples(
+                parseWordExamples(current?.example),
+                wordDetails.examples ?? [],
+            );
+            const example = mergedExamples.length
+                ? serializeWordExamples(mergedExamples)
+                : undefined;
 
             await this.prisma.word.update({
                 where: { id: wordId },
@@ -891,17 +911,7 @@ export class DictionaryService {
                 },
             });
 
-            const owner = await this.prisma.word.findUnique({
-                where: { id: wordId },
-                select: {
-                    lesson: {
-                        select: {
-                            course: { select: { userLoginId: true } },
-                        },
-                    },
-                },
-            });
-            const userLoginId = owner?.lesson?.course?.userLoginId;
+            const userLoginId = current?.lesson?.course?.userLoginId;
             if (userLoginId) {
                 await this.cacheService.invalidateUser(userLoginId);
             }
