@@ -5,6 +5,8 @@
  */
 const REQUIRED_ENV_VARS = [
     'INTERNAL_SERVICE_TO_SERVICE_TOKEN',
+    'AUTH_JWKS_URI',
+    'JWT_ISSUER',
     'DATABASE_URL',
     'REDIS_URL',
 ] as const;

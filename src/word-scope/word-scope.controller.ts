@@ -1,4 +1,3 @@
-import { InternalServiceGuard } from '@/guard/internal-service/internal-service.guard';
 import {
     Body,
     Controller,
@@ -7,8 +6,7 @@ import {
     ParseUUIDPipe,
     Post,
     Query,
-    UseGuards,
-} from '@nestjs/common';
+    } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Word } from '@prisma/client';
 import {
@@ -29,7 +27,6 @@ import { WordScopeService } from './word-scope.service';
     name: 'userLoginId',
     description: 'User login ID',
 })
-@UseGuards(InternalServiceGuard)
 export class WordScopeController {
     constructor(private readonly wordScopeService: WordScopeService) {}
 

@@ -2,7 +2,6 @@ import {
     DeleteResponseDto,
     WordResponseDto,
 } from '@/course-lesson-words/dto/word.dto';
-import { InternalServiceGuard } from '@/guard/internal-service/internal-service.guard';
 import {
     Body,
     Controller,
@@ -12,8 +11,7 @@ import {
     Post,
     Put,
     Query,
-    UseGuards,
-} from '@nestjs/common';
+    } from '@nestjs/common';
 import {
     ApiBody,
     ApiOperation,
@@ -41,7 +39,6 @@ import {
     description: 'User login ID',
     example: '01936c1e-1234-7890-abcd-ef1234567890',
 })
-@UseGuards(InternalServiceGuard)
 export class CoursesController {
     constructor(private readonly coursesService: CoursesService) {}
 

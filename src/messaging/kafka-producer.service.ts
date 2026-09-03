@@ -1,9 +1,16 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+    Injectable,
+    Logger,
+    OnModuleDestroy,
+    OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Kafka, Producer } from 'kafkajs';
 
 @Injectable()
 export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
+    private readonly logger = new Logger(KafkaProducerService.name);
+
     private kafka: Kafka | null = null;
     private producer: Producer | null = null;
 
@@ -31,8 +38,25 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
                       }
                     : undefined,
         });
-        this.producer = this.kafka.producer();
-        await this.producer.connect();
+
+        const producer = this.kafka.producer();
+        try {
+            await producer.connect();
+            this.producer = producer;
+        } catch (error) {
+            // An unreachable broker must not stop the service from starting.
+            // The only producer here drives Langeek dictionary sync, a
+            // background job; taking down course and word APIs because a broker
+            // is down would trade a degraded feature for an outage. Sends
+            // no-op until a restart reconnects, exactly as they do when
+            // KAFKA_BROKERS is unset.
+            this.producer = null;
+            this.kafka = null;
+            this.logger.error(
+                `Kafka producer could not connect to ${brokerList.join(',')}; ` +
+                    `dictionary sync will not enqueue until it is reachable. ${String(error)}`,
+            );
+        }
     }
 
     async onModuleDestroy(): Promise<void> {

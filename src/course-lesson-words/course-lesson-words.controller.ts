@@ -1,4 +1,3 @@
-import { InternalServiceGuard } from '@/guard/internal-service/internal-service.guard';
 import {
     Body,
     Controller,
@@ -8,8 +7,7 @@ import {
     ParseUUIDPipe,
     Post,
     Put,
-    UseGuards,
-} from '@nestjs/common';
+    } from '@nestjs/common';
 import {
     ApiBody,
     ApiOperation,
@@ -47,7 +45,6 @@ import {
     description: 'Lesson ID',
     example: '01936c1e-1234-7890-abcd-ef1234567890',
 })
-@UseGuards(InternalServiceGuard)
 export class CourseLessonWordsController {
     constructor(private readonly wordsService: CourseLessonWordsService) {}
 

@@ -26,6 +26,8 @@ import {
 import { CacheService } from '@/cache/cache.service';
 import { CacheKind } from '@/cache/cache-ttl';
 import { PrismaService } from '@/prisma/prisma.service';
+import { DICTIONARY_SYNC_WORD_LANGEEK_TOPIC } from '@/messaging/constants';
+import { KafkaProducerService } from '@/messaging/kafka-producer.service';
 import * as cheerio from 'cheerio';
 import { v7 as uuidv7 } from 'uuid';
 
@@ -50,7 +52,58 @@ export class DictionaryService {
         private readonly httpService: HttpService,
         private readonly prisma: PrismaService,
         private readonly cacheService: CacheService,
+        private readonly kafkaProducer: KafkaProducerService,
     ) {}
+
+    /**
+     * Enqueue a Langeek sync for every word matching the filters.
+     *
+     * This orchestration used to live in the API gateway, which meant creating
+     * the job and paging through the words were two HTTP round trips per page
+     * against this very service. Here they are ordinary method calls: the
+     * paginated network loop becomes a local query, and the topic name is the
+     * same constant the consumer subscribes to, so producer and consumer cannot
+     * drift apart.
+     *
+     * No-ops silently when Kafka is unconfigured, like every other producer in
+     * the workspace — the job is still created, with nothing enqueued.
+     */
+    async syncWordsWithLangeek(
+        filters?: SyncWordsLangeekDto,
+    ): Promise<{ jobId: string; total: number; enqueued: number }> {
+        // Created first, so its total is authoritative and the job exists before
+        // any consumer starts reporting progress against it.
+        const job = await this.createSyncJob(filters);
+
+        let enqueued = 0;
+        let cursor: string | undefined;
+
+        do {
+            const page = await this.getWordsForSyncFilters({
+                ...(filters ?? {}),
+                cursor,
+                limit: DictionaryService.SYNC_WORDS_PAGE_SIZE,
+            });
+
+            const words = page?.words ?? [];
+            if (words.length > 0) {
+                await this.kafkaProducer.sendBatch(
+                    DICTIONARY_SYNC_WORD_LANGEEK_TOPIC,
+                    words.map((entry) => ({
+                        wordId: entry.wordId,
+                        word: entry.word,
+                        partOfSpeech: entry.partOfSpeech,
+                        jobId: job.jobId,
+                    })),
+                );
+                enqueued += words.length;
+            }
+
+            cursor = page?.nextCursor ?? undefined;
+        } while (cursor);
+
+        return { jobId: job.jobId, total: job.total, enqueued };
+    }
 
     /**
      * Fetches pronunciation (audio URLs) and IPAs (UK/US) per part of speech.
