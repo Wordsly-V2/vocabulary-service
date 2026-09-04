@@ -13,7 +13,7 @@ import type {
     ProcessWordSyncResultDto,
     SyncJobStatus,
     SyncJobStatusDto,
-    SyncWordsLangeekDto,
+    SyncWordsLangeekFilters,
     UserWordSearchResultDto,
     WordPronunciationResponseDto,
 } from './dto/dictionary.dto';
@@ -69,7 +69,7 @@ export class DictionaryService {
      * the workspace — the job is still created, with nothing enqueued.
      */
     async syncWordsWithLangeek(
-        filters?: SyncWordsLangeekDto,
+        filters?: SyncWordsLangeekFilters,
     ): Promise<{ jobId: string; total: number; enqueued: number }> {
         // Created first, so its total is authoritative and the job exists before
         // any consumer starts reporting progress against it.
@@ -698,7 +698,7 @@ export class DictionaryService {
     }
 
     /** Builds the Prisma `where` for word filters shared by count + pagination. */
-    private buildWordWhere(filters?: SyncWordsLangeekDto): {
+    private buildWordWhere(filters?: SyncWordsLangeekFilters): {
         id?: string;
         lessonId?: string;
         lesson?: { courseId?: string; course?: { userLoginId?: string } };
@@ -734,7 +734,7 @@ export class DictionaryService {
      * no words the job is marked completed immediately.
      */
     async createSyncJob(
-        filters?: SyncWordsLangeekDto,
+        filters?: SyncWordsLangeekFilters,
     ): Promise<{ jobId: string; total: number; status: SyncJobStatus }> {
         const jobId = uuidv7();
         const where = this.buildWordWhere(filters);
@@ -838,7 +838,7 @@ export class DictionaryService {
      * Used by the API gateway to produce one Kafka message per word without loading all rows.
      */
     async getWordsForSyncFilters(
-        filters?: SyncWordsLangeekDto,
+        filters?: SyncWordsLangeekFilters,
     ): Promise<GetWordsForSyncFiltersResponseDto> {
         const where = this.buildWordWhere(filters);
 

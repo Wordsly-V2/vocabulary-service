@@ -25,6 +25,7 @@ import {
     UserWordSearchResultDto,
     WordPronunciationResponseDto,
 } from './dto/dictionary.dto';
+import { CurrentUser } from '@/auth/jwt/current-user.decorator';
 
 @ApiTags('dictionary')
 @Controller('dictionary')
@@ -138,16 +139,11 @@ export class DictionaryController {
         return this.dictionaryService.getWordExamples(word);
     }
 
-    @Get('users/:userLoginId/words/search/:word')
+    @Get('words/search/:word')
     @ApiOperation({
         summary: 'Search user-created words',
         description:
             'Searches words the user created across all their courses. Matches the search term against word and meaning (case-insensitive).',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User identifier',
-        example: '01936c1e-1234-7890-abcd-ef1234567890',
     })
     @ApiParam({
         name: 'word',
@@ -160,21 +156,17 @@ export class DictionaryController {
         type: [UserWordSearchResultDto],
     })
     async searchUserWords(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('word') word: string,
     ): Promise<UserWordSearchResultDto[]> {
         return this.dictionaryService.searchUserWords(userLoginId, word);
     }
 
-    @Post('users/:userLoginId/sync-words-langeek')
+    @Post('sync-words-langeek')
     @ApiOperation({
         summary: "Sync this user's words with Langeek",
         description:
             'Counts the words matching the filters, records a job, then produces one Kafka message per word. This service consumes those messages itself (Langeek lookup + DB update). Poll the returned jobId for progress.',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'Owner of the words to sync',
     })
     @ApiResponse({
         status: 201,
@@ -182,11 +174,12 @@ export class DictionaryController {
             'Sync job created (jobId to poll progress, total, enqueued)',
     })
     async syncWordsWithLangeek(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Body() dto: SyncWordsLangeekDto,
     ): Promise<{ jobId: string; total: number; enqueued: number }> {
-        // The user is taken from the (guard-checked) path, never from the body:
-        // OwnerGuard has already tied it to the caller's token.
+        // The user comes from the access token, never from the body. The DTO
+        // no longer offers a `userId` to be tempted by, and UserScopeGuard
+        // refuses a request that tries to name one.
         return this.dictionaryService.syncWordsWithLangeek({
             userId: userLoginId,
             courseId: dto.courseId,
@@ -195,14 +188,13 @@ export class DictionaryController {
         });
     }
 
-    @Get('users/:userLoginId/sync-words-langeek/jobs/:jobId')
+    @Get('sync-words-langeek/jobs/:jobId')
     @ApiOperation({
         summary: 'Get sync job progress (internal)',
         description:
             'Returns how many words are done/remaining and whether the job is still in progress or completed.',
     })
     @ApiParam({ name: 'jobId', description: 'Sync job identifier' })
-    @ApiParam({ name: 'userLoginId', description: 'Owner of the job' })
     @ApiResponse({
         status: 200,
         description: 'Sync job progress',
@@ -210,7 +202,7 @@ export class DictionaryController {
     })
     @ApiResponse({ status: 404, description: 'Job not found' })
     async getSyncJob(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('jobId', new ParseUUIDPipe()) jobId: string,
     ): Promise<SyncJobStatusDto> {
         const job = await this.dictionaryService.getSyncJob(jobId, userLoginId);

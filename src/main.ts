@@ -50,27 +50,41 @@ async function bootstrap() {
     const cert = configService.get<string>('kafka.cert') ?? '';
     const key = configService.get<string>('kafka.key') ?? '';
 
-    app.connectMicroservice({
-        transport: Transport.KAFKA,
-        options: {
-            clientId: 'vocabulary-service-client',
-            client: {
-                brokers: brokers.split(',').filter(Boolean),
-                ssl: {
-                    rejectUnauthorized: true,
-                    ca,
-                    cert,
-                    key,
+    const brokerList = brokers.split(',').filter(Boolean);
+
+    // TLS only when there is material to do it with. A managed broker supplies
+    // CA/cert/key and is verified exactly as before; a plaintext broker (the one
+    // in docker-compose, for local dev) supplies none, and asking for TLS anyway
+    // just failed the handshake and took the whole process down with an
+    // unhandled rejection.
+    const kafkaSsl =
+        ca || cert || key ? { rejectUnauthorized: true, ca, cert, key } : false;
+
+    // Kafka is optional in dev, and this is what makes that true: with no
+    // brokers configured the microservice is never connected, so the service
+    // still serves HTTP. Connecting unconditionally meant an empty or
+    // unreachable KAFKA_BROKERS crashed the process on an unhandled rejection
+    // before `listen()` — the HTTP API was collateral damage from a dependency
+    // it does not need in order to answer a request. learning-service has
+    // always guarded this; vocabulary-service had not.
+    if (brokerList.length > 0) {
+        app.connectMicroservice({
+            transport: Transport.KAFKA,
+            options: {
+                clientId: 'vocabulary-service-client',
+                client: {
+                    brokers: brokerList,
+                    ssl: kafkaSsl,
+                },
+                consumer: {
+                    groupId: 'vocabulary-service-consumer',
+                },
+                run: {
+                    autoCommit: false,
                 },
             },
-            consumer: {
-                groupId: 'vocabulary-service-consumer',
-            },
-            run: {
-                autoCommit: false,
-            },
-        },
-    });
+        });
+    }
 
     await app.startAllMicroservices();
     await app.listen(appPort as number);

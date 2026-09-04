@@ -7,7 +7,7 @@ import {
     ParseUUIDPipe,
     Post,
     Put,
-    } from '@nestjs/common';
+} from '@nestjs/common';
 import {
     ApiBody,
     ApiOperation,
@@ -27,14 +27,10 @@ import {
     UpdateWordDto,
     WordResponseDto,
 } from './dto/word.dto';
+import { CurrentUser } from '@/auth/jwt/current-user.decorator';
 
 @ApiTags('words')
-@Controller('users/:userLoginId/courses/:courseId/lessons/:lessonId/words')
-@ApiParam({
-    name: 'userLoginId',
-    description: 'User login ID',
-    example: '01936c1e-1234-7890-abcd-ef1234567890',
-})
+@Controller('courses/:courseId/lessons/:lessonId/words')
 @ApiParam({
     name: 'courseId',
     description: 'Course ID',
@@ -73,7 +69,7 @@ export class CourseLessonWordsController {
             'Lesson has reached its maximum word limit (maxWords per lesson)',
     })
     async createWord(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
         @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
         @Body() createWordDto: CreateWordDto,
@@ -113,7 +109,7 @@ export class CourseLessonWordsController {
             'Invalid input data or lesson would exceed maxWords per lesson',
     })
     async createWordsBulk(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
         @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
         @Body() payload: { words: CreateWordDto[] },
@@ -146,7 +142,7 @@ export class CourseLessonWordsController {
         description: 'Word not found',
     })
     async getWordById(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
         @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
         @Param('wordId', new ParseUUIDPipe()) wordId: string,
@@ -181,7 +177,7 @@ export class CourseLessonWordsController {
             'Target lesson would exceed its maximum word limit (maxWords)',
     })
     async moveWordsBulk(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
         @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
         @Body() bulkMoveWordsDto: BulkMoveWordsDto,
@@ -216,7 +212,7 @@ export class CourseLessonWordsController {
         description: 'Word not found',
     })
     async updateWord(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
         @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
         @Param('wordId', new ParseUUIDPipe()) wordId: string,
@@ -243,7 +239,7 @@ export class CourseLessonWordsController {
         type: BulkOperationResponseDto,
     })
     async deleteWordsBulk(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
         @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
         @Body() bulkDeleteWordsDto: BulkDeleteWordsDto,
@@ -276,7 +272,7 @@ export class CourseLessonWordsController {
         description: 'Word not found',
     })
     async deleteWord(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
         @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
         @Param('wordId', new ParseUUIDPipe()) wordId: string,
@@ -317,7 +313,7 @@ export class CourseLessonWordsController {
             'Target lesson has reached its maximum word limit (maxWords)',
     })
     async moveWord(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
         @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
         @Param('wordId', new ParseUUIDPipe()) wordId: string,

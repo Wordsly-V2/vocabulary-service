@@ -33,11 +33,20 @@ Kafka layout:
 - Producing: inject `KafkaProducerService` (`src/messaging/`). It is a silent no-op when `KAFKA_BROKERS` is empty, so Kafka is optional in local dev.
 - Consuming: one thin consumer per feature (e.g. `src/dictionary/dictionary.consumer.ts`) that parses the payload, delegates to the feature service, then commits. HTTP stays in controllers, Kafka in consumers.
 
-### Internal-only API
+### Auth and scoping
 
-Every HTTP controller is guarded by `InternalServiceGuard` (`src/guard/internal-service/`), which requires an `x-service-token` header equal to `INTERNAL_SERVICE_TO_SERVICE_TOKEN`. This service is only called by the gateway and other services, never by browsers directly. The guard skips non-HTTP contexts so Kafka handlers pass through.
+Two global guards, registered as `APP_GUARD` in `app.module.ts` and living in `src/auth/jwt/`:
 
-Routes are user-scoped: `users/:userLoginId/courses/:courseId/lessons/:lessonId/words`. There is no users table here — `userLoginId` is just a UUID column on `Course`; ownership checks walk the Course → Lesson → Word chain.
+- `AccessGuard` — deny-by-default. Two ways in: `@Public()` (health only), or a valid RS256 access token verified against `AUTH_JWKS_URI`. A JWKS fetch failure is a **503, not a 401**: "I could not check this token" must not sign learners out and wipe their offline cache.
+- `UserScopeGuard` — refuses any request carrying a user id in its path or query string.
+
+Both return `true` immediately for non-HTTP contexts, so Kafka handlers pass through.
+
+**Handlers never read a user id from the request.** Routes are `courses/:courseId/lessons/:lessonId/words` — no user segment — and the id comes from `@CurrentUser()`, which returns the access token's subject. Routes used to be `users/:userLoginId/...` with a guard comparing the segment against the token; the id was still client-supplied, so every new route was one missed check away from serving someone else's rows.
+
+There is no users table here — `userLoginId` is just a UUID column on `Course`; ownership checks walk the Course → Lesson → Word chain, and every query filters on it (`course: { userLoginId, id: courseId }`) rather than trusting the URL prefix.
+
+learning-service calls the `word-scope` endpoints with the **end user's own access token**, forwarded, so those requests are checked exactly like a browser's.
 
 ### Data + caching
 

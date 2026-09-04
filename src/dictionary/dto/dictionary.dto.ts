@@ -2,16 +2,15 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
-/** Optional filters for syncing words with Langeek. All omitted = sync all words. */
+/**
+ * Optional filters a caller may send when syncing words with Langeek. All
+ * omitted = sync all of *this caller's* words.
+ *
+ * Note what is absent: there is no `userId`. The owner is not something a
+ * request gets to choose — it comes from the access token, and the controller
+ * adds it on the way through (see `SyncWordsLangeekFilters`).
+ */
 export class SyncWordsLangeekDto {
-    @ApiPropertyOptional({
-        description: 'Filter by user (course owner)',
-        example: '01936c1e-1234-7890-abcd-ef1234567890',
-    })
-    @IsOptional()
-    @IsUUID()
-    userId?: string;
-
     @ApiPropertyOptional({
         description: 'Filter by course',
         example: '01936c1e-5678-7890-abcd-ef1234567890',
@@ -65,7 +64,9 @@ export class CreateSyncJobResponseDto {
     @ApiProperty({ description: 'Sync job identifier used to poll progress' })
     jobId: string;
 
-    @ApiProperty({ description: 'Total number of words that will be processed' })
+    @ApiProperty({
+        description: 'Total number of words that will be processed',
+    })
     total: number;
 
     @ApiProperty({
@@ -86,7 +87,9 @@ export class SyncJobStatusDto {
     @ApiProperty({ description: 'Total words in the job' })
     total: number;
 
-    @ApiProperty({ description: 'Words processed so far (updated + skipped + errored)' })
+    @ApiProperty({
+        description: 'Words processed so far (updated + skipped + errored)',
+    })
     done: number;
 
     @ApiProperty({ description: 'Words still to process' })
@@ -467,3 +470,12 @@ export class LangeekWordEntryDto {
 
 export const LANGEEK_FILTERS = ['withExamples', 'inCategory', 'photo'] as const;
 export type LangeekFilter = (typeof LANGEEK_FILTERS)[number];
+
+/**
+ * What the sync actually runs against: the caller's filters plus the owner the
+ * controller resolved from the access token. Kept separate from the DTO so the
+ * owner cannot arrive over the wire.
+ */
+export type SyncWordsLangeekFilters = SyncWordsLangeekDto & {
+    userId?: string;
+};

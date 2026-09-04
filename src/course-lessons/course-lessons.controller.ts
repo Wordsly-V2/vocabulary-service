@@ -8,7 +8,7 @@ import {
     ParseUUIDPipe,
     Post,
     Put,
-    } from '@nestjs/common';
+} from '@nestjs/common';
 import {
     ApiBody,
     ApiOperation,
@@ -25,14 +25,10 @@ import {
     ReorderLessonsDto,
     UpdateLessonDto,
 } from './dto/lesson.dto';
+import { CurrentUser } from '@/auth/jwt/current-user.decorator';
 
 @ApiTags('lessons')
-@Controller('users/:userLoginId/courses/:courseId/lessons')
-@ApiParam({
-    name: 'userLoginId',
-    description: 'User login ID',
-    example: '01936c1e-1234-7890-abcd-ef1234567890',
-})
+@Controller('courses/:courseId/lessons')
 @ApiParam({
     name: 'courseId',
     description: 'Course ID',
@@ -61,7 +57,7 @@ export class CourseLessonsController {
         description: 'Course not found',
     })
     async createLesson(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
         @Body() createLessonDto: CreateLessonDto,
     ): Promise<Lesson> {
@@ -93,7 +89,7 @@ export class CourseLessonsController {
         description: 'Course not found',
     })
     async reorderLessons(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
         @Body() reorderLessonsDto: ReorderLessonsDto,
     ): Promise<Lesson[]> {
@@ -120,7 +116,7 @@ export class CourseLessonsController {
         description: 'Course not found',
     })
     getLessonsByCourseId(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
     ): Promise<Array<Lesson & { wordsCount: number }>> {
         return this.lessonsService.getLessonsByCourseId(userLoginId, courseId);
@@ -146,7 +142,7 @@ export class CourseLessonsController {
         description: 'Lesson not found',
     })
     async getLessonById(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
         @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
     ): Promise<Lesson> {
@@ -183,7 +179,7 @@ export class CourseLessonsController {
             'maxWords cannot be less than the current word count in the lesson',
     })
     async updateLesson(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
         @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
         @Body() updateLessonDto: UpdateLessonDto,
@@ -216,7 +212,7 @@ export class CourseLessonsController {
         description: 'Lesson not found',
     })
     async deleteLesson(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId', new ParseUUIDPipe()) courseId: string,
         @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
     ): Promise<{ success: boolean }> {

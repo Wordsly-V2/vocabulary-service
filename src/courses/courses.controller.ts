@@ -11,7 +11,7 @@ import {
     Post,
     Put,
     Query,
-    } from '@nestjs/common';
+} from '@nestjs/common';
 import {
     ApiBody,
     ApiOperation,
@@ -31,14 +31,10 @@ import {
     PaginatedCourseResponseDto,
     UpdateCourseDto,
 } from './dto/courses.dto';
+import { CurrentUser } from '@/auth/jwt/current-user.decorator';
 
-@ApiTags('users/:userLoginId/courses')
-@Controller('users/:userLoginId/courses')
-@ApiParam({
-    name: 'userLoginId',
-    description: 'User login ID',
-    example: '01936c1e-1234-7890-abcd-ef1234567890',
-})
+@ApiTags('courses')
+@Controller('courses')
 export class CoursesController {
     constructor(private readonly coursesService: CoursesService) {}
 
@@ -53,7 +49,7 @@ export class CoursesController {
         description: 'Statistics retrieved successfully',
         type: CoursesTotalStatsDto,
     })
-    async getCoursesTotalStats(@Param('userLoginId') userLoginId: string) {
+    async getCoursesTotalStats(@CurrentUser() userLoginId: string) {
         return this.coursesService.getCoursesTotalStats(userLoginId);
     }
 
@@ -104,7 +100,7 @@ export class CoursesController {
         type: PaginatedCourseResponseDto,
     })
     async getCoursesByUserLoginId(
-        @Param('userLoginId') userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Query() query: GetCoursesQueryDto,
     ) {
         return this.coursesService.getCoursesByUserLoginId(
@@ -133,7 +129,7 @@ export class CoursesController {
         description: 'Invalid input data',
     })
     async createCourse(
-        @Param('userLoginId') userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Body() createCourseDto: CreateCourseDto,
     ): Promise<Course> {
         return this.coursesService.createCourse(userLoginId, createCourseDto);
@@ -143,11 +139,6 @@ export class CoursesController {
     @ApiOperation({
         summary: 'Get course by ID',
         description: 'Retrieves a specific course by its ID',
-    })
-    @ApiParam({
-        name: 'userLoginId',
-        description: 'User login ID',
-        example: 'user123',
     })
     @ApiResponse({
         status: 200,
@@ -159,7 +150,7 @@ export class CoursesController {
         description: 'Course not found',
     })
     async getCourseById(
-        @Param('userLoginId') userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId') courseId: string,
     ): Promise<Course> {
         return this.coursesService.getCourseById(userLoginId, courseId);
@@ -186,7 +177,7 @@ export class CoursesController {
         description: 'Course not found',
     })
     async updateCourse(
-        @Param('userLoginId') userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId') courseId: string,
         @Body() updateCourseDto: UpdateCourseDto,
     ): Promise<Course> {
@@ -218,7 +209,7 @@ export class CoursesController {
         description: 'Course not found',
     })
     async deleteCourse(
-        @Param('userLoginId') userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId') courseId: string,
     ): Promise<{ success: boolean }> {
         await this.coursesService.deleteCourse(userLoginId, courseId);
@@ -250,7 +241,7 @@ export class CoursesController {
         schema: { type: 'object', properties: { count: { type: 'number' } } },
     })
     async deleteWordsBulkFromCourse(
-        @Param('userLoginId') userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId') courseId: string,
         @Body() body: { wordIds: string[] },
     ): Promise<{ count: number }> {
@@ -287,7 +278,7 @@ export class CoursesController {
         schema: { type: 'object', properties: { count: { type: 'number' } } },
     })
     async moveWordsBulkFromCourse(
-        @Param('userLoginId') userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId') courseId: string,
         @Body() body: { wordIds: string[]; targetLessonId: string },
     ): Promise<{ count: number }> {
@@ -320,7 +311,7 @@ export class CoursesController {
         type: [WordResponseDto],
     })
     async getWords(
-        @Param('userLoginId') userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('courseId') courseId: string,
         @Query() query: GetWordsQueryDto,
     ): Promise<Word[]> {

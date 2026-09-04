@@ -6,8 +6,8 @@ import {
     ParseUUIDPipe,
     Post,
     Query,
-    } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+} from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Word } from '@prisma/client';
 import {
     ByCourseIdsDto,
@@ -20,13 +20,10 @@ import {
     WordScopeGroupDto,
 } from './dto/word-scope.dto';
 import { WordScopeService } from './word-scope.service';
+import { CurrentUser } from '@/auth/jwt/current-user.decorator';
 
-@ApiTags('users/:userLoginId/words')
-@Controller('users/:userLoginId/words')
-@ApiParam({
-    name: 'userLoginId',
-    description: 'User login ID',
-})
+@ApiTags('words')
+@Controller('words')
 export class WordScopeController {
     constructor(private readonly wordScopeService: WordScopeService) {}
 
@@ -38,7 +35,7 @@ export class WordScopeController {
     })
     @ApiResponse({ status: 200, type: ScopedWordIdsResponseDto })
     async getScopedWordIds(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Query() query: ScopedWordIdsQueryDto,
     ): Promise<ScopedWordIdsResponseDto> {
         const wordIds = await this.wordScopeService.getScopedWordIds(
@@ -53,7 +50,7 @@ export class WordScopeController {
     @ApiOperation({ summary: 'Check if user owns a word' })
     @ApiResponse({ status: 200, type: WordAccessResponseDto })
     async hasWordAccess(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Param('wordId', new ParseUUIDPipe()) wordId: string,
     ): Promise<WordAccessResponseDto> {
         const hasAccess = await this.wordScopeService.hasWordAccess(
@@ -69,7 +66,7 @@ export class WordScopeController {
     })
     @ApiResponse({ status: 200, type: FilterOwnedWordIdsResponseDto })
     async filterOwnedWordIds(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Body() body: FilterOwnedWordIdsDto,
     ): Promise<FilterOwnedWordIdsResponseDto> {
         const wordIds = await this.wordScopeService.filterOwnedWordIds(
@@ -84,7 +81,7 @@ export class WordScopeController {
         summary: 'Get full word details for owned word IDs across any course',
     })
     async getWordsByIds(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Body() body: FilterOwnedWordIdsDto,
     ): Promise<Word[]> {
         return this.wordScopeService.getWordsByIds(userLoginId, body.wordIds);
@@ -95,7 +92,7 @@ export class WordScopeController {
         summary: 'Group word IDs by lesson',
     })
     async groupByLessonIds(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Body() body: ByLessonIdsDto,
     ): Promise<Record<string, WordScopeGroupDto>> {
         return this.wordScopeService.groupByLessonIds(
@@ -109,7 +106,7 @@ export class WordScopeController {
         summary: 'Group word IDs by course',
     })
     async groupByCourseIds(
-        @Param('userLoginId', new ParseUUIDPipe()) userLoginId: string,
+        @CurrentUser() userLoginId: string,
         @Body() body: ByCourseIdsDto,
     ): Promise<Record<string, WordScopeGroupDto>> {
         return this.wordScopeService.groupByCourseIds(
