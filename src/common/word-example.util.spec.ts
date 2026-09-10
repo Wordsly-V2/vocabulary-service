@@ -105,9 +105,9 @@ describe('hasClozeableExample', () => {
     });
 
     it('is safe for words containing regex metacharacters', () => {
-        expect(hasClozeableExample('c++', [{ text: 'I write c++ daily.' }])).toBe(
-            false,
-        );
+        expect(
+            hasClozeableExample('c++', [{ text: 'I write c++ daily.' }]),
+        ).toBe(false);
         expect(hasClozeableExample('', [{ text: 'anything' }])).toBe(false);
     });
 });

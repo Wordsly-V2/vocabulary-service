@@ -7,7 +7,9 @@ import {
     ParseUUIDPipe,
     Post,
     Query,
+    UseGuards,
 } from '@nestjs/common';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import {
     ApiOperation,
     ApiParam,
@@ -26,9 +28,14 @@ import {
     WordPronunciationResponseDto,
 } from './dto/dictionary.dto';
 import { CurrentUser } from '@/auth/jwt/current-user.decorator';
+import { UserThrottlerGuard } from '@/common/throttler/user-throttler.guard';
 
 @ApiTags('dictionary')
 @Controller('dictionary')
+// Every route here is a lookup that may leave the network. The default is the
+// generous 'lookup' bucket; the sync endpoint overrides it below.
+@UseGuards(UserThrottlerGuard)
+@Throttle({ lookup: { ttl: 60_000, limit: 60 } })
 export class DictionaryController {
     constructor(private readonly dictionaryService: DictionaryService) {}
 
@@ -163,6 +170,9 @@ export class DictionaryController {
     }
 
     @Post('sync-words-langeek')
+    // Fans out one Kafka message per matching word, so it is by far the most
+    // expensive thing a caller can ask for.
+    @Throttle({ 'scrape-sync': { ttl: 60_000, limit: 5 } })
     @ApiOperation({
         summary: "Sync this user's words with Langeek",
         description:
@@ -189,6 +199,7 @@ export class DictionaryController {
     }
 
     @Get('sync-words-langeek/jobs/:jobId')
+    @SkipThrottle()
     @ApiOperation({
         summary: 'Get sync job progress (internal)',
         description:

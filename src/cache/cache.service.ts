@@ -46,6 +46,12 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         }
     }
 
+    /** Round-trip to Redis, for the readiness probe. */
+    async ping(): Promise<boolean> {
+        if (!this.client) return false;
+        return (await this.client.ping()) === 'PONG';
+    }
+
     async onModuleDestroy(): Promise<void> {
         await this.client?.quit();
     }

@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsUUID } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsOptional, IsUUID } from 'class-validator';
+
+/**
+ * Cap on an id list in a request body.
+ *
+ * Each becomes a Prisma `IN (...)`; unbounded, one request can ask the database
+ * for an unlimited number of rows. Matches MAX_ID_LIST in learning-service,
+ * which is the service that calls these endpoints.
+ */
+export const MAX_ID_LIST = 500;
 
 export class ScopedWordIdsQueryDto {
     @ApiPropertyOptional({
@@ -35,6 +44,7 @@ export class WordAccessResponseDto {
 export class FilterOwnedWordIdsDto {
     @ApiProperty({ description: 'Word IDs to filter', type: [String] })
     @IsArray()
+    @ArrayMaxSize(MAX_ID_LIST)
     @IsUUID(undefined, { each: true })
     wordIds: string[];
 }
@@ -58,6 +68,7 @@ export class WordScopeGroupDto {
 export class ByLessonIdsDto {
     @ApiProperty({ description: 'Lesson IDs', type: [String] })
     @IsArray()
+    @ArrayMaxSize(MAX_ID_LIST)
     @IsUUID(undefined, { each: true })
     lessonIds: string[];
 }
@@ -65,6 +76,7 @@ export class ByLessonIdsDto {
 export class ByCourseIdsDto {
     @ApiProperty({ description: 'Course IDs', type: [String] })
     @IsArray()
+    @ArrayMaxSize(MAX_ID_LIST)
     @IsUUID(undefined, { each: true })
     courseIds: string[];
 }

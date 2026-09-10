@@ -85,7 +85,9 @@ export function serializeWordExamples(examples: WordExample[]): string {
     return JSON.stringify(
         examples.map((example) => ({
             text: example.text,
-            ...(example.translation ? { translation: example.translation } : {}),
+            ...(example.translation
+                ? { translation: example.translation }
+                : {}),
             ...(example.audioUrl ? { audioUrl: example.audioUrl } : {}),
         })),
     );
