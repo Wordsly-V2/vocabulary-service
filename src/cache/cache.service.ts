@@ -9,6 +9,12 @@ import Redis from 'ioredis';
 import { userCachePattern } from './cache-keys';
 import { CACHE_TTL_SECONDS, CacheKind } from './cache-ttl';
 
+/** Per-call control over whether a freshly computed value is worth storing. */
+export interface CacheWriteOptions<T> {
+    /** Return false to hand the value back to the caller without caching it. */
+    shouldCache?: (value: T) => boolean;
+}
+
 @Injectable()
 export class CacheService implements OnModuleInit, OnModuleDestroy {
     private readonly logger = new Logger(CacheService.name);
@@ -69,8 +75,14 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         keyParts: string[],
         factory: () => Promise<T>,
         kind: CacheKind,
+        options?: CacheWriteOptions<T>,
     ): Promise<T> {
-        return this.getOrSetByKey(this.globalKey(...keyParts), factory, kind);
+        return this.getOrSetByKey(
+            this.globalKey(...keyParts),
+            factory,
+            kind,
+            options,
+        );
     }
 
     async getOrSet<T>(
@@ -78,11 +90,13 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         keyParts: string[],
         factory: () => Promise<T>,
         kind: CacheKind,
+        options?: CacheWriteOptions<T>,
     ): Promise<T> {
         return this.getOrSetByKey(
             this.userKey(userLoginId, ...keyParts),
             factory,
             kind,
+            options,
         );
     }
 
@@ -90,6 +104,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         key: string,
         factory: () => Promise<T>,
         kind: CacheKind,
+        options?: CacheWriteOptions<T>,
     ): Promise<T> {
         if (!this.client) {
             return factory();
@@ -106,6 +121,14 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         }
 
         const value = await factory();
+
+        // A factory that degraded (upstream down, partial scrape) can say so
+        // here. Without it a transient failure is written under the same key and
+        // the same TTL as a real answer — a one-second dictionary timeout would
+        // pin "no results" to a word for the whole week.
+        if (options?.shouldCache && !options.shouldCache(value)) {
+            return value;
+        }
 
         try {
             await this.client.set(

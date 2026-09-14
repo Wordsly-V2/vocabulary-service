@@ -1,5 +1,9 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+    Injectable,
+    InternalServerErrorException,
+    Logger,
+} from '@nestjs/common';
 import { DictionaryScraper } from '@perqueza72/cambridge-dictionary-scraper';
 import { firstValueFrom } from 'rxjs';
 import type {
@@ -46,6 +50,7 @@ const encodeKeyPart = (value: string): string =>
 
 @Injectable()
 export class DictionaryService {
+    private readonly logger = new Logger(DictionaryService.name);
     private langeekBuildId: { value: string; fetchedAt: number } | null = null;
 
     constructor(
@@ -112,17 +117,32 @@ export class DictionaryService {
     async getWordPronunciation(
         word: string,
     ): Promise<WordPronunciationResponseDto> {
+        // Two independent Cambridge calls, either of which may fail on its own.
+        // Whatever came back is still returned, but a run where a leg failed is
+        // not written: caching it would freeze a half (or wholly) empty entry
+        // for the Dictionary TTL because of a moment's network trouble.
+        let degraded = false;
         return this.cacheService.getOrSetGlobal(
             [`dict:pron:${encodeKeyPart(word)}`],
-            () => this.fetchWordPronunciation(word),
+            async () => {
+                const result = await this.fetchWordPronunciation(word);
+                degraded = result.degraded;
+                return {
+                    pronunciation: result.pronunciation,
+                    ipas: result.ipas,
+                };
+            },
             CacheKind.Dictionary,
+            { shouldCache: () => !degraded },
         );
     }
 
+    /** `degraded` is true when a leg failed, so the caller can skip caching. */
     private async fetchWordPronunciation(
         word: string,
-    ): Promise<WordPronunciationResponseDto> {
+    ): Promise<WordPronunciationResponseDto & { degraded: boolean }> {
         const emptyIpas: IpaEntryDto[] = [];
+        let degraded = false;
         let pronunciation: WordPronunciationResponseDto['pronunciation'] = [];
         try {
             const pron = await dictionary.pronounciation(word);
@@ -130,8 +150,12 @@ export class DictionaryService {
                 type: item.type,
                 url: baseCambridgeUrl + item.url,
             }));
-        } catch {
-            // keep pronunciation []
+        } catch (err: unknown) {
+            degraded = true;
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.warn(
+                `Cambridge audio lookup failed for "${word}": ${message}`,
+            );
         }
 
         let ipas = emptyIpas;
@@ -150,12 +174,17 @@ export class DictionaryService {
                     }),
                 );
                 ipas = this.extractIpasByPartOfSpeech(cheerio.load(res.data));
-            } catch {
-                // keep emptyIpas
+            } catch (err: unknown) {
+                degraded = true;
+                const message =
+                    err instanceof Error ? err.message : String(err);
+                this.logger.warn(
+                    `Cambridge IPA lookup failed for "${word}": ${message}`,
+                );
             }
         }
 
-        return { pronunciation, ipas };
+        return { pronunciation, ipas, degraded };
     }
 
     /**
@@ -225,7 +254,33 @@ export class DictionaryService {
         );
     }
 
+    /**
+     * Search, degrading to no results when Langeek is unreachable.
+     *
+     * The swallow lives here rather than around the fetch so that a failure
+     * never reaches the cache: `searchWordsCached` lets the error out, and a
+     * factory that throws leaves the key unwritten. Swallowing inside the
+     * factory instead wrote `[]` under the Dictionary TTL, so one timeout hid a
+     * perfectly real word for seven days. An empty answer Langeek actually gave
+     * is still cached — that one is a fact about the word, not about the network.
+     */
     async searchWords(
+        word: string,
+        filters: LangeekFilter[],
+    ): Promise<DictionarySearchResultDto[]> {
+        try {
+            return await this.searchWordsCached(word, filters);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.warn(
+                `Langeek search failed for "${word}" (not cached): ${message}`,
+            );
+            return [];
+        }
+    }
+
+    /** Cached search that propagates an upstream failure to its caller. */
+    private async searchWordsCached(
         word: string,
         filters: LangeekFilter[],
     ): Promise<DictionarySearchResultDto[]> {
@@ -241,18 +296,14 @@ export class DictionaryService {
         word: string,
         filters: LangeekFilter[],
     ): Promise<DictionarySearchResultDto[]> {
-        try {
-            const filterString = filters.join(',');
-            const response = await firstValueFrom(
-                this.httpService.get<LangeekWordEntryDto[]>(
-                    `https://api.langeek.co/v1/cs/en/vi/word/?term=${word}&filter=${filterString}`,
-                ),
-            );
-            const entries = response.data ?? [];
-            return this.mapToSearchResults(entries);
-        } catch {
-            return [];
-        }
+        const filterString = filters.join(',');
+        const response = await firstValueFrom(
+            this.httpService.get<LangeekWordEntryDto[]>(
+                `https://api.langeek.co/v1/cs/en/vi/word/?term=${word}&filter=${filterString}`,
+            ),
+        );
+        const entries = response.data ?? [];
+        return this.mapToSearchResults(entries);
     }
 
     /**
@@ -321,8 +372,12 @@ export class DictionaryService {
         try {
             const partOfSpeechNorm = partOfSpeech.trim().toLowerCase();
 
+            // The cached variant, deliberately: a swallowed upstream failure
+            // would arrive as an empty list and be stored below as "this word
+            // has no details" for the Dictionary TTL. Letting it throw lands in
+            // the catch, which caches nothing.
             const [searchResults, buildId] = await Promise.all([
-                this.searchWords(word, []),
+                this.searchWordsCached(word, []),
                 this.getLangeekBuildId(),
             ]);
             if (!searchResults.length) return null;
