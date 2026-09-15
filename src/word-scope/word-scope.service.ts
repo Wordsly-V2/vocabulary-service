@@ -33,9 +33,28 @@ export class WordScopeService {
                         },
                     },
                     select: { id: true },
+                    // Course first, and only then lesson order.
+                    //
+                    // This list is a curriculum, not just a set: whoever
+                    // consumes it takes words off the front, so the order is
+                    // what decides which words a learner meets next. Sorting by
+                    // lesson order alone put every course's lesson 1 in one
+                    // block, so a learner with four courses was handed four
+                    // courses' opening lessons interleaved and never reached
+                    // lesson 2 of any of them. Grouping by course means one
+                    // course advances through its lessons in order before the
+                    // next one starts.
+                    //
+                    // createdAt orders the courses (oldest first, i.e. the one
+                    // they started with), with ids breaking every tie so the
+                    // list is stable across calls.
                     orderBy: [
+                        { lesson: { course: { createdAt: 'asc' } } },
+                        { lesson: { courseId: 'asc' } },
                         { lesson: { orderIndex: 'asc' } },
+                        { lessonId: 'asc' },
                         { word: 'asc' },
+                        { id: 'asc' },
                     ],
                 });
                 return words.map((w) => w.id);
