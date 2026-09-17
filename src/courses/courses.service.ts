@@ -88,10 +88,11 @@ export class CoursesService {
                                 mode: 'insensitive',
                             },
                         },
-                        // Pinned courses always lead the library, newest pin
-                        // first; the caller's sort only orders the rest.
+                        // Pinned courses always lead the library, in the order
+                        // they were pinned (oldest pin first); the caller's sort
+                        // only orders the rest.
                         orderBy: [
-                            { pinnedAt: { sort: 'desc', nulls: 'last' } },
+                            { pinnedAt: { sort: 'asc', nulls: 'last' } },
                             { [orderByField]: orderByDirection },
                         ],
                         include: {
@@ -226,7 +227,7 @@ export class CoursesService {
 
     /**
      * Pin/unpin a course. `pinnedAt` doubles as the flag and the tie-breaker —
-     * the most recently pinned course leads the library.
+     * pinned courses keep the order they were pinned in, oldest pin first.
      */
     async setCoursePin(
         userLoginId: string,
