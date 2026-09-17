@@ -19,12 +19,16 @@ model Course {
 
   userLoginId      String?  @db.Uuid
 
+  /// When the learner pinned this course. Null = not pinned; pinned courses sort first.
+  pinnedAt DateTime? @map("pinned_at") @db.Timestamptz
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   lessons Lesson[]
 
   @@index([userLoginId])
+  @@index([userLoginId, pinnedAt])
   @@map("courses")
 }
 

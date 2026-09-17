@@ -9,6 +9,7 @@ import { Course, Word } from '@prisma/client';
 import { v7 as uuidv7 } from 'uuid';
 import {
     CourseDetail,
+    CoursePinState,
     CourseResponse,
     CoursesTotalStats,
     CreateCourseDto,
@@ -87,9 +88,12 @@ export class CoursesService {
                                 mode: 'insensitive',
                             },
                         },
-                        orderBy: {
-                            [orderByField]: orderByDirection,
-                        },
+                        // Pinned courses always lead the library, newest pin
+                        // first; the caller's sort only orders the rest.
+                        orderBy: [
+                            { pinnedAt: { sort: 'desc', nulls: 'last' } },
+                            { [orderByField]: orderByDirection },
+                        ],
                         include: {
                             _count: {
                                 select: {
@@ -129,6 +133,7 @@ export class CoursesService {
                         name: course.name,
                         coverImageUrl: course.coverImageUrl,
                         userLoginId: course.userLoginId,
+                        isPinned: course.pinnedAt !== null,
                         totalLessonsCount: course._count.lessons,
                         totalWordsCount: course.lessons.reduce(
                             (acc, lesson) => acc + lesson._count.words,
@@ -195,7 +200,7 @@ export class CoursesService {
                     throw new NotFoundException('Course not found');
                 }
 
-                return course;
+                return { ...course, isPinned: course.pinnedAt !== null };
             },
             CacheKind.CourseDetail,
         );
@@ -217,6 +222,25 @@ export class CoursesService {
         });
         await this.cacheService.invalidateUser(userLoginId);
         return course;
+    }
+
+    /**
+     * Pin/unpin a course. `pinnedAt` doubles as the flag and the tie-breaker —
+     * the most recently pinned course leads the library.
+     */
+    async setCoursePin(
+        userLoginId: string,
+        courseId: string,
+        pinned: boolean,
+    ): Promise<CoursePinState> {
+        await this.getCourseById(userLoginId, courseId);
+
+        const course = await this.prisma.course.update({
+            where: { id: courseId, userLoginId: userLoginId },
+            data: { pinnedAt: pinned ? new Date() : null },
+        });
+        await this.cacheService.invalidateUser(userLoginId);
+        return { id: course.id, isPinned: course.pinnedAt !== null };
     }
 
     async deleteCourse(userLoginId: string, courseId: string): Promise<void> {

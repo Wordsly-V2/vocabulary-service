@@ -24,11 +24,14 @@ import { Course, Word } from '@prisma/client';
 import { CoursesService } from './courses.service';
 import {
     CourseDetailResponseDto,
+    CoursePinState,
+    CoursePinStateDto,
     CoursesTotalStatsDto,
     CreateCourseDto,
     GetCoursesQueryDto,
     GetWordsQueryDto,
     PaginatedCourseResponseDto,
+    PinCourseDto,
     UpdateCourseDto,
 } from './dto/courses.dto';
 import { CurrentUser } from '@/auth/jwt/current-user.decorator';
@@ -185,6 +188,39 @@ export class CoursesController {
             userLoginId,
             courseId,
             updateCourseDto,
+        );
+    }
+
+    @Put(':courseId/pin')
+    @ApiOperation({
+        summary: 'Pin or unpin a course',
+        description:
+            "Pinned courses are listed first in the learner's library and on the learn screen",
+    })
+    @ApiParam({
+        name: 'courseId',
+        description: 'Course ID',
+        example: 'course-uuid-123',
+    })
+    @ApiBody({ type: PinCourseDto })
+    @ApiResponse({
+        status: 200,
+        description: 'Pin state updated successfully',
+        type: CoursePinStateDto,
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Course not found',
+    })
+    async setCoursePin(
+        @CurrentUser() userLoginId: string,
+        @Param('courseId') courseId: string,
+        @Body() pinCourseDto: PinCourseDto,
+    ): Promise<CoursePinState> {
+        return this.coursesService.setCoursePin(
+            userLoginId,
+            courseId,
+            pinCourseDto.pinned,
         );
     }
 

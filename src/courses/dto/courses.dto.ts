@@ -1,5 +1,6 @@
 import { Course, Lesson, Word } from '@prisma/client';
 import {
+    IsBoolean,
     IsEnum,
     IsInt,
     IsNotEmpty,
@@ -54,6 +55,34 @@ export class UpdateCourseDto {
     coverImageUrl?: string;
 }
 
+export class PinCourseDto {
+    @ApiProperty({
+        description: 'True pins the course to the top of the library',
+        example: true,
+    })
+    @IsBoolean()
+    pinned: boolean;
+}
+
+export class CoursePinStateDto {
+    @ApiProperty({
+        description: 'Course ID',
+        example: '01936c1e-1234-7890-abcd-ef1234567890',
+    })
+    id: string;
+
+    @ApiProperty({
+        description: 'Whether the course is now pinned',
+        example: true,
+    })
+    isPinned: boolean;
+}
+
+export type CoursePinState = {
+    id: string;
+    isPinned: boolean;
+};
+
 export class CourseResponseDto {
     @ApiProperty({
         description: 'Course ID',
@@ -78,6 +107,12 @@ export class CourseResponseDto {
         example: '01936c1e-1234-7890-abcd-ef1234567890',
     })
     userLoginId: string | null;
+
+    @ApiProperty({
+        description: 'Whether the learner pinned this course',
+        example: false,
+    })
+    isPinned: boolean;
 
     @ApiProperty({
         description: 'Total number of lessons in the course',
@@ -176,6 +211,12 @@ export class CourseDetailResponseDto {
     userLoginId: string | null;
 
     @ApiProperty({
+        description: 'Whether the learner pinned this course',
+        example: false,
+    })
+    isPinned: boolean;
+
+    @ApiProperty({
         description: 'Course creation timestamp',
         example: '2024-01-15T10:30:00Z',
     })
@@ -194,7 +235,11 @@ export class CourseDetailResponseDto {
     lessons: any[];
 }
 
-export type CourseResponse = Omit<Course, 'createdAt' | 'updatedAt'> & {
+export type CourseResponse = Omit<
+    Course,
+    'createdAt' | 'updatedAt' | 'pinnedAt'
+> & {
+    isPinned: boolean;
     totalLessonsCount: number;
     totalWordsCount: number;
 };
@@ -206,6 +251,7 @@ export type CoursesTotalStats = {
 };
 
 export type CourseDetail = Course & {
+    isPinned: boolean;
     lessons: (Lesson & { words: Word[] })[];
 };
 
