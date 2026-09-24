@@ -40,7 +40,9 @@ model Lesson {
   orderIndex    Int?
 
   courseId    String  @db.Uuid
-  course      Course  @relation(fields: [courseId], references: [id])
+  // Cascade is the backstop: the services delete words themselves so they can
+  // publish their ids, but a course delete must never fail on RESTRICT.
+  course      Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -68,7 +70,9 @@ model Word {
   imageThumbnailUrl String?
 
   lessonId    String  @db.Uuid
-  lesson      Lesson  @relation(fields: [lessonId], references: [id])
+  // See Lesson.course: words are deleted explicitly (to publish
+  // WORDS_DELETED_TOPIC); cascade only keeps a lesson delete from failing.
+  lesson      Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz

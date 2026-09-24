@@ -2,10 +2,12 @@ import { CourseLessonWordsService } from '@/course-lesson-words/course-lesson-wo
 import { cacheKeys } from '@/cache/cache-keys';
 import { CacheService } from '@/cache/cache.service';
 import { CacheKind } from '@/cache/cache-ttl';
+import { WORDS_DELETED_TOPIC } from '@/messaging/constants';
+import { KafkaProducerService } from '@/messaging/kafka-producer.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Pagination } from '@/types/common/pagination.type';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Course, Word } from '@prisma/client';
+import { Course, Prisma, Word } from '@prisma/client';
 import { v7 as uuidv7 } from 'uuid';
 import {
     CourseDetail,
@@ -22,6 +24,7 @@ export class CoursesService {
         private readonly prisma: PrismaService,
         private readonly courseLessonWordsService: CourseLessonWordsService,
         private readonly cacheService: CacheService,
+        private readonly kafkaProducer: KafkaProducerService,
     ) {}
 
     async getCoursesTotalStats(
@@ -244,15 +247,54 @@ export class CoursesService {
         return { id: course.id, isPinned: course.pinnedAt !== null };
     }
 
+    /**
+     * Deletes a course with its lessons and words.
+     *
+     * Words are deleted explicitly rather than left to the FK cascade because
+     * learning-service only drops progress for ids published on
+     * WORDS_DELETED_TOPIC — a cascaded delete would orphan every learner's
+     * progress for the course. The event goes out after commit, with the ids
+     * actually deleted, so a rolled-back delete never wipes progress.
+     */
     async deleteCourse(userLoginId: string, courseId: string): Promise<void> {
         await this.getCourseById(userLoginId, courseId);
 
-        await this.prisma.course.delete({
-            where: {
-                id: courseId,
-                userLoginId: userLoginId,
-            },
+        const deletedWordIds = await this.prisma.$transaction(async (tx) => {
+            // Locking the lessons blocks a concurrent word insert or move into
+            // them (it needs a KEY SHARE lock on the lesson row) until we commit,
+            // when its FK check fails. Without it, a word added between the
+            // select and the delete would be removed by the cascade unpublished.
+            await tx.$queryRaw(Prisma.sql`
+                SELECT l."id"
+                FROM "lessons" l
+                JOIN "courses" c ON c."id" = l."courseId"
+                WHERE c."id" = ${courseId}::uuid
+                  AND c."userLoginId" = ${userLoginId}::uuid
+                FOR UPDATE OF l
+            `);
+
+            const words = await tx.word.findMany({
+                where: { lesson: { course: { id: courseId, userLoginId } } },
+                select: { id: true },
+            });
+            const ids = words.map((w) => w.id);
+            if (ids.length > 0) {
+                await tx.word.deleteMany({ where: { id: { in: ids } } });
+            }
+            await tx.lesson.deleteMany({
+                where: { course: { id: courseId, userLoginId } },
+            });
+            await tx.course.delete({
+                where: { id: courseId, userLoginId },
+            });
+            return ids;
         });
+
+        if (deletedWordIds.length > 0) {
+            await this.kafkaProducer.send(WORDS_DELETED_TOPIC, {
+                wordIds: deletedWordIds,
+            });
+        }
         await this.cacheService.invalidateUser(userLoginId);
     }
 

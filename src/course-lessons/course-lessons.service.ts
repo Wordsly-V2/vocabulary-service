@@ -1,13 +1,15 @@
 import { cacheKeys } from '@/cache/cache-keys';
 import { CacheService } from '@/cache/cache.service';
 import { CacheKind } from '@/cache/cache-ttl';
+import { WORDS_DELETED_TOPIC } from '@/messaging/constants';
+import { KafkaProducerService } from '@/messaging/kafka-producer.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import {
     BadRequestException,
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
-import { Lesson } from '@prisma/client';
+import { Lesson, Prisma } from '@prisma/client';
 import { v7 as uuidv7 } from 'uuid';
 import {
     CreateLessonDto,
@@ -20,6 +22,7 @@ export class CourseLessonsService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly cacheService: CacheService,
+        private readonly kafkaProducer: KafkaProducerService,
     ) {}
 
     async createLesson(
@@ -240,12 +243,51 @@ export class CourseLessonsService {
         // Verify lesson exists
         await this.getLessonById(userLoginId, courseId, lessonId);
 
-        await this.prisma.lesson.delete({
-            where: {
-                id: lessonId,
-                course: { userLoginId: userLoginId, id: courseId },
-            },
+        // Words go first and explicitly, not via the FK cascade: learning-service
+        // only drops progress for ids published on WORDS_DELETED_TOPIC, so a
+        // cascaded delete would orphan it. Published after commit, with the ids
+        // actually deleted, so a rolled-back delete never wipes progress.
+        const deletedWordIds = await this.prisma.$transaction(async (tx) => {
+            // Blocks a concurrent word insert/move into this lesson until
+            // commit (it needs a KEY SHARE lock on the row), so no word can slip
+            // in between the select and the delete and be cascaded unpublished.
+            await tx.$queryRaw(Prisma.sql`
+                SELECT l."id"
+                FROM "lessons" l
+                JOIN "courses" c ON c."id" = l."courseId"
+                WHERE l."id" = ${lessonId}::uuid
+                  AND c."id" = ${courseId}::uuid
+                  AND c."userLoginId" = ${userLoginId}::uuid
+                FOR UPDATE OF l
+            `);
+
+            const words = await tx.word.findMany({
+                where: {
+                    lesson: {
+                        id: lessonId,
+                        course: { userLoginId, id: courseId },
+                    },
+                },
+                select: { id: true },
+            });
+            const ids = words.map((w) => w.id);
+            if (ids.length > 0) {
+                await tx.word.deleteMany({ where: { id: { in: ids } } });
+            }
+            await tx.lesson.delete({
+                where: {
+                    id: lessonId,
+                    course: { userLoginId: userLoginId, id: courseId },
+                },
+            });
+            return ids;
         });
+
+        if (deletedWordIds.length > 0) {
+            await this.kafkaProducer.send(WORDS_DELETED_TOPIC, {
+                wordIds: deletedWordIds,
+            });
+        }
         await this.cacheService.invalidateUser(userLoginId);
     }
 }
