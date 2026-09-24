@@ -1,4 +1,6 @@
 import {
+    BulkDeleteWordsDto,
+    BulkMoveWordsDto,
     DeleteResponseDto,
     WordResponseDto,
 } from '@/course-lesson-words/dto/word.dto';
@@ -279,12 +281,12 @@ export class CoursesController {
     async deleteWordsBulkFromCourse(
         @CurrentUser() userLoginId: string,
         @Param('courseId') courseId: string,
-        @Body() body: { wordIds: string[] },
+        @Body() body: BulkDeleteWordsDto,
     ): Promise<{ count: number }> {
         return this.coursesService.deleteWordsBulkFromCourse(
             userLoginId,
             courseId,
-            body.wordIds ?? [],
+            body.wordIds,
         );
     }
 
@@ -316,12 +318,12 @@ export class CoursesController {
     async moveWordsBulkFromCourse(
         @CurrentUser() userLoginId: string,
         @Param('courseId') courseId: string,
-        @Body() body: { wordIds: string[]; targetLessonId: string },
+        @Body() body: BulkMoveWordsDto,
     ): Promise<{ count: number }> {
         return this.coursesService.moveWordsBulkFromCourse(
             userLoginId,
             courseId,
-            body.wordIds ?? [],
+            body.wordIds,
             body.targetLessonId,
         );
     }

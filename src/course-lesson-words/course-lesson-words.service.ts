@@ -9,7 +9,7 @@ import {
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
-import { Word } from '@prisma/client';
+import { Prisma, Word } from '@prisma/client';
 import { v7 as uuidv7 } from 'uuid';
 import { CreateWordDto, UpdateWordDto } from './dto/word.dto';
 
@@ -24,6 +24,28 @@ export class CourseLessonWordsService {
     private async publishWordDeletedEvents(wordIds: string[]): Promise<void> {
         if (wordIds.length === 0) return;
         await this.kafkaProducer.send(WORDS_DELETED_TOPIC, { wordIds });
+    }
+
+    /**
+     * Deletes the words matching `where` and returns the ids actually removed.
+     * Callers must publish these ids, never the requested ones: learning-service
+     * drops progress for every published id across all users, so echoing a
+     * foreign id back would wipe another user's progress.
+     */
+    private async deleteWordsReturningIds(
+        where: Prisma.WordWhereInput,
+    ): Promise<string[]> {
+        return this.prisma.$transaction(async (tx) => {
+            const owned = await tx.word.findMany({
+                where,
+                select: { id: true },
+            });
+            const ids = owned.map((w) => w.id);
+            if (ids.length > 0) {
+                await tx.word.deleteMany({ where: { id: { in: ids } } });
+            }
+            return ids;
+        });
     }
 
     /**
@@ -228,21 +250,17 @@ export class CourseLessonWordsService {
         lessonId: string,
         wordIds: string[],
     ): Promise<{ count: number }> {
-        const result = await this.prisma.word.deleteMany({
-            where: {
-                id: { in: wordIds },
-                lesson: {
-                    id: lessonId,
-                    course: { userLoginId: userLoginId, id: courseId },
-                },
+        const deletedIds = await this.deleteWordsReturningIds({
+            id: { in: wordIds },
+            lesson: {
+                id: lessonId,
+                course: { userLoginId: userLoginId, id: courseId },
             },
         });
 
-        if (result.count > 0) {
-            await this.publishWordDeletedEvents(wordIds);
-        }
+        await this.publishWordDeletedEvents(deletedIds);
         await this.cacheService.invalidateUser(userLoginId);
-        return { count: result.count };
+        return { count: deletedIds.length };
     }
 
     async moveWord(
@@ -340,19 +358,15 @@ export class CourseLessonWordsService {
         wordIds: string[],
     ): Promise<{ count: number }> {
         if (wordIds.length === 0) return { count: 0 };
-        const result = await this.prisma.word.deleteMany({
-            where: {
-                id: { in: wordIds },
-                lesson: {
-                    course: { userLoginId, id: courseId },
-                },
+        const deletedIds = await this.deleteWordsReturningIds({
+            id: { in: wordIds },
+            lesson: {
+                course: { userLoginId, id: courseId },
             },
         });
-        if (result.count > 0) {
-            await this.publishWordDeletedEvents(wordIds);
-        }
+        await this.publishWordDeletedEvents(deletedIds);
         await this.cacheService.invalidateUser(userLoginId);
-        return { count: result.count };
+        return { count: deletedIds.length };
     }
 
     /**

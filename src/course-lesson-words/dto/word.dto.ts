@@ -1,4 +1,5 @@
 import {
+    ArrayMaxSize,
     ArrayMinSize,
     IsArray,
     IsNotEmpty,
@@ -135,6 +136,9 @@ export class UpdateWordDto {
     example?: string;
 }
 
+/** Upper bound on ids per bulk request, so one call can't hold a huge IN list. */
+export const MAX_BULK_WORD_IDS = 1000;
+
 export class BulkCreateWordsDto {
     @ApiProperty({
         description: 'Array of words to create',
@@ -165,6 +169,7 @@ export class BulkMoveWordsDto {
     })
     @IsArray()
     @ArrayMinSize(1)
+    @ArrayMaxSize(MAX_BULK_WORD_IDS)
     @IsUUID(undefined, { each: true })
     wordIds: string[];
 
@@ -185,6 +190,7 @@ export class BulkDeleteWordsDto {
     })
     @IsArray()
     @ArrayMinSize(1)
+    @ArrayMaxSize(MAX_BULK_WORD_IDS)
     @IsUUID(undefined, { each: true })
     wordIds: string[];
 }
