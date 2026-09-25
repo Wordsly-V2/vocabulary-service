@@ -70,3 +70,7 @@ learning-service calls the `word-scope` endpoints with the **end user's own acce
 - DTOs with class-validator for every endpoint (global `ValidationPipe` with `whitelist` + `transform`); never return raw Prisma models.
 - Controllers stay thin; business logic lives in services. Feature-based modules, kebab-case folders, `*.service.ts` / `*.controller.ts` / `*.module.ts` naming.
 - 4-space indentation, single quotes (`.prettierrc`).
+
+## Database rules
+
+- **Never use database enums** (workspace-wide rule, see `../../CLAUDE.md`): no Prisma `enum`, no `CREATE TYPE … AS ENUM`. Use `String` columns; the allowed values live in code as an `as const` list + union type and are validated at the boundary.
