@@ -39,7 +39,7 @@ Two global guards, registered as `APP_GUARD` in `app.module.ts` and living in `s
 
 - `AccessGuard` — deny-by-default. Two ways in: `@Public()` (health only), or a valid RS256 access token verified against `AUTH_JWKS_URI`. A JWKS fetch failure is a **503, not a 401**: "I could not check this token" must not sign learners out and wipe their offline cache.
 - `RolesGuard` — runs right after AccessGuard; a route marked `@Roles('admin')` needs that role in the access token's `roles` claim (403 otherwise). No-op without the decorator.
-- `UserScopeGuard` — refuses any request carrying a user id in its path or query string.
+- `UserScopeGuard` — refuses any request carrying a user id in its path or query string, except on an `@Roles('admin')` route called by an admin (admin routes act on a named user by design). Admin routes live under `/admin/vocabulary`.
 
 Both return `true` immediately for non-HTTP contexts, so Kafka handlers pass through.
 
