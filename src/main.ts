@@ -8,6 +8,8 @@ import { buildCorsOptions, parseCorsOrigins } from '@/config/cors';
 import helmet from 'helmet';
 import { requestIdMiddleware } from '@/common/request-id.middleware';
 import { RequestContextLogger } from '@/common/request-context-logger';
+import { CONSUMED_TOPICS } from '@/messaging/constants';
+import { ensureTopics } from '@/messaging/ensure-topics';
 
 const bootLogger = new Logger('Bootstrap');
 
@@ -82,6 +84,12 @@ async function bootstrap() {
     // it does not need in order to answer a request. learning-service has
     // always guarded this; vocabulary-service had not.
     if (brokerList.length > 0) {
+        await ensureTopics({
+            brokers: brokerList,
+            ssl: kafkaSsl,
+            topics: CONSUMED_TOPICS,
+            logger: bootLogger,
+        });
         app.connectMicroservice({
             transport: Transport.KAFKA,
             options: {
