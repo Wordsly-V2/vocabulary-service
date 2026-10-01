@@ -20,6 +20,7 @@ import { MessagingModule } from './messaging/messaging.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { WordScopeModule } from './word-scope/word-scope.module';
 import { HealthModule } from './health/health.module';
+import { UserDataModule } from './user-data/user-data.module';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { RequestContextLogger } from './common/request-context-logger';
 @Module({
@@ -45,6 +46,7 @@ import { RequestContextLogger } from './common/request-context-logger';
         CourseLessonWordsModule,
         MessagingModule,
         DictionaryModule,
+        UserDataModule,
         CourseLessonsModule,
         WordScopeModule,
         HttpClientsModule,

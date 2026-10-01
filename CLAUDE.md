@@ -31,7 +31,8 @@ Env comes from `.env` (see `.env.example`). Required vars are validated at boot 
 Kafka layout:
 - Topic names live only in `src/messaging/constants.ts` — producers and consumers both import from there.
 - Producing: inject `KafkaProducerService` (`src/messaging/`). It is a silent no-op when `KAFKA_BROKERS` is empty, so Kafka is optional in local dev.
-- Consuming: one thin consumer per feature (e.g. `src/dictionary/dictionary.consumer.ts`) that parses the payload, delegates to the feature service, then commits. HTTP stays in controllers, Kafka in consumers.
+- Consuming: one thin consumer per feature (e.g. `src/dictionary/dictionary.consumer.ts`) that parses the payload, delegates to the feature service, then commits. HTTP stays in controllers, Kafka in consumers. Every consumed topic goes in `CONSUMED_TOPICS` (`constants.ts`); `ensureTopics` creates missing ones at boot before the consumer subscribes.
+- `USER_DELETED_TOPIC` (`src/user-data/`, from auth-service's outbox when an admin deletes an account): deletes the user's courses (lessons and words cascade) and clears their cache. It publishes **no** `words_deleted`, since learning-service purges the same user on the same event. Idempotent.
 
 ### Auth and scoping
 
