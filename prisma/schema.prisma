@@ -22,6 +22,14 @@ model Course {
   /// When the learner pinned this course. Null = not pinned; pinned courses sort first.
   pinnedAt DateTime? @map("pinned_at") @db.Timestamptz
 
+  /// Official courses only (userLoginId null): when an admin published it to
+  /// learners. Null = draft.
+  publishedAt DateTime? @map("published_at") @db.Timestamptz
+
+  /// A learner's copy of an official course: the official course it was copied
+  /// from. No foreign key, so deleting the official course leaves copies alone.
+  sourceCourseId String? @map("source_course_id") @db.Uuid
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -29,6 +37,8 @@ model Course {
 
   @@index([userLoginId])
   @@index([userLoginId, pinnedAt])
+  @@index([userLoginId, publishedAt])
+  @@index([userLoginId, sourceCourseId])
   @@map("courses")
 }
 

@@ -58,5 +58,18 @@ export const cacheKeys = {
         `scope:by-course:${[...courseIds].sort().join(',')}`,
 };
 
+/**
+ * Official courses, shared by every learner (`getOrSetGlobal`). Every admin
+ * write to one drops them all with `invalidateGlobal(OFFICIAL_CACHE_PREFIX)`.
+ */
+export const OFFICIAL_CACHE_PREFIX = 'official';
+
+export const officialCacheKeys = {
+    list: (page: number, limit: number, searchQuery: string) =>
+        `${OFFICIAL_CACHE_PREFIX}:list:p${page}:l${limit}:${encode(searchQuery)}`,
+
+    course: (courseId: string) => `${OFFICIAL_CACHE_PREFIX}:course:${courseId}`,
+};
+
 export const userCachePattern = (userLoginId: string): string =>
     `vocab:u:${userLoginId}:*`;
