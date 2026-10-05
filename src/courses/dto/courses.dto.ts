@@ -237,7 +237,7 @@ export class CourseDetailResponseDto {
 
 export type CourseResponse = Omit<
     Course,
-    'createdAt' | 'updatedAt' | 'pinnedAt'
+    'createdAt' | 'updatedAt' | 'pinnedAt' | 'publishedAt' | 'sourceCourseId'
 > & {
     isPinned: boolean;
     totalLessonsCount: number;

@@ -243,6 +243,22 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         }
     }
 
+    /** Drops every global key under `prefix` (see `globalKey`). */
+    async invalidateGlobal(prefix: string): Promise<void> {
+        if (!this.client) {
+            return;
+        }
+
+        try {
+            await this.deleteByPattern(this.globalKey(prefix, '*'));
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.warn(
+                `Cache invalidation failed for ${prefix}: ${message}`,
+            );
+        }
+    }
+
     private async deleteByPattern(pattern: string): Promise<void> {
         if (!this.client) {
             return;

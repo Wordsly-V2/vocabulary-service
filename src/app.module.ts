@@ -22,6 +22,7 @@ import { WordScopeModule } from './word-scope/word-scope.module';
 import { HealthModule } from './health/health.module';
 import { UserDataModule } from './user-data/user-data.module';
 import { AdminVocabularyModule } from './admin-vocabulary/admin-vocabulary.module';
+import { OfficialCoursesModule } from './official-courses/official-courses.module';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { RequestContextLogger } from './common/request-context-logger';
 @Module({
@@ -42,6 +43,9 @@ import { RequestContextLogger } from './common/request-context-logger';
         ]),
         AuthModule,
         CacheModule,
+        // Before CoursesModule: its `GET /courses/:courseId` would otherwise
+        // claim `/courses/official` (and answer 400, not a UUID).
+        OfficialCoursesModule,
         CoursesModule,
         PrismaModule,
         CourseLessonWordsModule,

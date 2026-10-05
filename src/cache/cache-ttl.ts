@@ -9,6 +9,7 @@ export enum CacheKind {
     Search = 'search',
     Scope = 'scope',
     Dictionary = 'dictionary',
+    Official = 'official',
 }
 
 /** TTL in seconds per cache kind. Writes invalidate user cache; TTL is a safety net. */
@@ -25,4 +26,6 @@ export const CACHE_TTL_SECONDS: Record<CacheKind, number> = {
     // External dictionary content is effectively static; cache long to spare
     // the upstream scrapers (Cambridge/Langeek) and cut lookup latency.
     [CacheKind.Dictionary]: 7 * 24 * 60 * 60,
+    // Admin writes invalidate official courses; the TTL is the usual safety net.
+    [CacheKind.Official]: 60 * 60,
 };
