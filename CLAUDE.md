@@ -63,6 +63,7 @@ learning-service calls the `word-scope` endpoints with the **end user's own acce
 
 - `courses`, `course-lessons`, `course-lesson-words` — CRUD for the content hierarchy. Deleting words emits `WORDS_DELETED_TOPIC` so learning-service can drop word progress.
 - `word-scope` — internal query API for learning-service (scoped word IDs, ownership filtering, grouping by lesson/course).
+- `admin-vocabulary` — `@Roles('admin')` under `/admin/vocabulary`: `GET users/:id/courses` (totals + courses newest first, page size capped at 50), `GET users/:id/courses/:courseId` (lessons with words), `PUT`/`DELETE` a course, a lesson (`…/lessons/:lessonId`) or a word (`…/lessons/:lessonId/words/:wordId`), `POST users/:id/courses/:courseId/words/delete {wordIds}`. Every call goes through the learner-facing services with the target's `userLoginId`, so ownership checks, cache invalidation and `words_deleted` behave exactly as for the learner; writes log `admin_action`. `GET health?limit` (not cached): words missing IPA (`ukIpa`, `usIpa` and `pronunciation` all blank), audio (`audioUrl`, `ukAudioUrl`, `usAudioUrl`), meaning, example (blank or the JSON `[]` the learner's word form saves for "no examples") and image (optional), overall and for the courses with the most incomplete words.
 - `dictionary` — Cambridge lookups via `@perqueza72/cambridge-dictionary-scraper` + cheerio, and Langeek lookups by scraping the Next.js build ID. Word sync runs through Kafka, one message per word.
 
 ### Conventions
