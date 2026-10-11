@@ -21,18 +21,21 @@ import type {
     UserWordSearchResultDto,
     WordPronunciationResponseDto,
 } from './dto/dictionary.dto';
-import { cacheKeys } from '@/cache/cache-keys';
-import {
-    mergeWordExamples,
-    parseWordExamples,
-    serializeWordExamples,
-} from '@/common/word-example.util';
+import { cacheKeys, OFFICIAL_CACHE_PREFIX } from '@/cache/cache-keys';
 import { CacheService } from '@/cache/cache.service';
 import { CacheKind } from '@/cache/cache-ttl';
 import { PrismaService } from '@/prisma/prisma.service';
 import { DICTIONARY_SYNC_WORD_LANGEEK_TOPIC } from '@/messaging/constants';
 import { KafkaProducerService } from '@/messaging/kafka-producer.service';
 import * as cheerio from 'cheerio';
+import {
+    normalizeCefrLevel,
+    planWordUpdate,
+    SYNC_FIELDS,
+    type FetchedWord,
+    type SyncField,
+    type SyncMode,
+} from './word-sync.logic';
 import { v7 as uuidv7 } from 'uuid';
 
 // Initialize the Cambridge Dictionary scraper
@@ -116,6 +119,7 @@ export class DictionaryService {
      */
     async getWordPronunciation(
         word: string,
+        options: { refresh?: boolean } = {},
     ): Promise<WordPronunciationResponseDto> {
         // Two independent Cambridge calls, either of which may fail on its own.
         // Whatever came back is still returned, but a run where a leg failed is
@@ -133,7 +137,7 @@ export class DictionaryService {
                 };
             },
             CacheKind.Dictionary,
-            { shouldCache: () => !degraded },
+            { shouldCache: () => !degraded, refresh: options.refresh },
         );
     }
 
@@ -283,12 +287,14 @@ export class DictionaryService {
     private async searchWordsCached(
         word: string,
         filters: LangeekFilter[],
+        refresh = false,
     ): Promise<DictionarySearchResultDto[]> {
         const filterKey = [...filters].sort().join(',') || 'none';
         return this.cacheService.getOrSetGlobal(
             [`dict:search:${encodeKeyPart(word)}:f${filterKey}`],
             () => this.fetchSearchWords(word, filters),
             CacheKind.Dictionary,
+            { refresh },
         );
     }
 
@@ -299,7 +305,7 @@ export class DictionaryService {
         const filterString = filters.join(',');
         const response = await firstValueFrom(
             this.httpService.get<LangeekWordEntryDto[]>(
-                `https://api.langeek.co/v1/cs/en/vi/word/?term=${word}&filter=${filterString}`,
+                `https://api.langeek.co/v1/cs/en/vi/word/?term=${encodeURIComponent(word)}&filter=${filterString}`,
             ),
         );
         const entries = response.data ?? [];
@@ -355,19 +361,23 @@ export class DictionaryService {
     async getLangeekWordDetails(
         word: string,
         partOfSpeech: string,
+        options: { refresh?: boolean } = {},
     ): Promise<LangeekWordDetailsDto | null> {
+        const refresh = options.refresh ?? false;
         return this.cacheService.getOrSetGlobal(
             [
                 `dict:details:v2:${encodeKeyPart(word)}:p${encodeKeyPart(partOfSpeech)}`,
             ],
-            () => this.fetchLangeekWordDetails(word, partOfSpeech),
+            () => this.fetchLangeekWordDetails(word, partOfSpeech, refresh),
             CacheKind.Dictionary,
+            { refresh },
         );
     }
 
     private async fetchLangeekWordDetails(
         word: string,
         partOfSpeech: string,
+        refresh = false,
     ): Promise<LangeekWordDetailsDto | null> {
         try {
             const partOfSpeechNorm = partOfSpeech.trim().toLowerCase();
@@ -377,15 +387,19 @@ export class DictionaryService {
             // has no details" for the Dictionary TTL. Letting it throw lands in
             // the catch, which caches nothing.
             const [searchResults, buildId] = await Promise.all([
-                this.searchWordsCached(word, []),
+                this.searchWordsCached(word, [], refresh),
                 this.getLangeekBuildId(),
             ]);
             if (!searchResults.length) return null;
 
+            // A word saved without a part of speech takes Langeek's first
+            // sense, so a sync can fill it in.
             const match = searchResults.find(
                 (r) =>
-                    r.partOfSpeech.trim().toLowerCase() === partOfSpeechNorm &&
-                    r.word === word,
+                    r.word === word &&
+                    (!partOfSpeechNorm ||
+                        r.partOfSpeech.trim().toLowerCase() ===
+                            partOfSpeechNorm),
             );
             if (!match) return null;
 
@@ -463,6 +477,7 @@ export class DictionaryService {
 
             return {
                 word,
+                cefrLevel: normalizeCefrLevel(wordData.level),
                 meaning: match.meaning,
                 partOfSpeech: match.partOfSpeech,
                 pronunciation,
@@ -925,66 +940,41 @@ export class DictionaryService {
     }
 
     /**
-     * Processes a single word sync (Langeek lookup + DB update). Called by the Kafka consumer.
+     * Processes a single word sync (Langeek lookup + DB update). Called by the
+     * Kafka consumer. Without options it is the learner sync: every field, and
+     * examples merged into the stored ones. Admin runs pick the field groups
+     * and the mode, and `refresh` skips the dictionary cache so a re-sync sees
+     * what Langeek has now.
      */
     async processOneWordSync(
         wordId: string,
         word: string,
-        partOfSpeech: string,
+        partOfSpeech: string | null,
+        options: {
+            fields?: readonly SyncField[];
+            mode?: SyncMode;
+            refresh?: boolean;
+        } = {},
     ): Promise<ProcessWordSyncResultDto> {
+        const fields = options.fields ?? SYNC_FIELDS;
+        const mode = options.mode ?? 'merge';
+        const refresh = options.refresh ?? false;
         try {
-            const wordDetails = await this.getLangeekWordDetails(
-                word,
-                partOfSpeech,
-            );
-            if (!wordDetails) {
-                return { status: 'skipped', reason: 'no_word_details' };
-            }
-
-            // Cambridge UK/US audio + IPA. Best-effort: a Cambridge failure must
-            // NOT fail the sync (and hence must not fail the Kafka message).
-            let ukAudioUrl: string | undefined;
-            let usAudioUrl: string | undefined;
-            let ukIpa: string | undefined;
-            let usIpa: string | undefined;
-            try {
-                const pron = await this.getWordPronunciation(word);
-                ukAudioUrl =
-                    pron.pronunciation.find(
-                        (p) => p.type?.toLowerCase() === 'uk',
-                    )?.url || undefined;
-                usAudioUrl =
-                    pron.pronunciation.find(
-                        (p) => p.type?.toLowerCase() === 'us',
-                    )?.url || undefined;
-                const posNorm = (wordDetails.partOfSpeech || partOfSpeech)
-                    ?.trim()
-                    .toLowerCase();
-                const ipaEntry =
-                    (posNorm &&
-                        pron.ipas.find(
-                            (i) => i.partOfSpeech.toLowerCase() === posNorm,
-                        )) ||
-                    pron.ipas[0];
-                ukIpa = ipaEntry?.uk || undefined;
-                usIpa = ipaEntry?.us || undefined;
-            } catch {
-                // keep UK/US fields undefined on Cambridge failure
-            }
-
-            // Structured examples are stored as a JSON array in `word.example`:
-            // [{ text, audioUrl?, translation? }]. Preserves per-example audio
-            // from Langeek.
-            //
-            // Merge rather than replace, and fall back to `undefined` (leave the
-            // column alone) rather than `null`. Writing `null` here used to wipe
-            // seeded examples whenever Langeek had no matching sense — the same
-            // reason every other field below uses `|| undefined`.
-            // Also carries the owner, so this replaces the post-update lookup
-            // that only existed to resolve the cache key.
+            // Also carries the owner, for the cache to drop afterwards.
             const current = await this.prisma.word.findUnique({
                 where: { id: wordId },
                 select: {
+                    meaning: true,
+                    pronunciation: true,
+                    partOfSpeech: true,
+                    audioUrl: true,
+                    imageUrl: true,
+                    imageThumbnailUrl: true,
+                    ukAudioUrl: true,
+                    usAudioUrl: true,
+                    ukIpa: true,
+                    usIpa: true,
+                    cefrLevel: true,
                     example: true,
                     lesson: {
                         select: {
@@ -993,38 +983,88 @@ export class DictionaryService {
                     },
                 },
             });
-            const mergedExamples = mergeWordExamples(
-                parseWordExamples(current?.example),
-                wordDetails.examples ?? [],
+            if (!current) {
+                return { status: 'skipped', reason: 'word_deleted' };
+            }
+
+            const wordDetails = await this.getLangeekWordDetails(
+                word,
+                partOfSpeech ?? '',
+                { refresh },
             );
-            const example = mergedExamples.length
-                ? serializeWordExamples(mergedExamples)
-                : undefined;
+            if (!wordDetails) {
+                return { status: 'skipped', reason: 'no_word_details' };
+            }
+
+            const fetched: FetchedWord = {
+                meaning: wordDetails.meaning,
+                pronunciation: wordDetails.pronunciation,
+                partOfSpeech: wordDetails.partOfSpeech,
+                audioUrl: wordDetails.audioUrl,
+                imageUrl: wordDetails.imageUrl,
+                imageThumbnailUrl: wordDetails.imageThumbnailUrl,
+                cefrLevel: wordDetails.cefrLevel,
+                examples: wordDetails.examples ?? [],
+            };
+
+            // Cambridge UK/US audio + IPA, only when pronunciation is asked
+            // for. Best-effort: a Cambridge failure must NOT fail the sync (and
+            // hence must not fail the Kafka message).
+            if (fields.includes('pronunciation')) {
+                try {
+                    const pron = await this.getWordPronunciation(word, {
+                        refresh,
+                    });
+                    fetched.ukAudioUrl = pron.pronunciation.find(
+                        (p) => p.type?.toLowerCase() === 'uk',
+                    )?.url;
+                    fetched.usAudioUrl = pron.pronunciation.find(
+                        (p) => p.type?.toLowerCase() === 'us',
+                    )?.url;
+                    const posNorm = (wordDetails.partOfSpeech || partOfSpeech)
+                        ?.trim()
+                        .toLowerCase();
+                    const ipaEntry =
+                        (posNorm &&
+                            pron.ipas.find(
+                                (i) => i.partOfSpeech.toLowerCase() === posNorm,
+                            )) ||
+                        pron.ipas[0];
+                    fetched.ukIpa = ipaEntry?.uk;
+                    fetched.usIpa = ipaEntry?.us;
+                } catch {
+                    // keep UK/US fields unset on Cambridge failure
+                }
+            }
+
+            // Never writes a blank (planWordUpdate drops them): writing null
+            // here used to wipe seeded examples whenever Langeek had no
+            // matching sense.
+            const plan = planWordUpdate(current, fetched, fields, mode);
 
             await this.prisma.word.update({
                 where: { id: wordId },
-                data: {
-                    meaning: wordDetails.meaning || undefined,
-                    pronunciation: wordDetails.pronunciation || undefined,
-                    partOfSpeech: wordDetails.partOfSpeech || undefined,
-                    audioUrl: wordDetails.audioUrl || undefined,
-                    imageUrl: wordDetails.imageUrl || undefined,
-                    imageThumbnailUrl:
-                        wordDetails.imageThumbnailUrl || undefined,
-                    ukAudioUrl,
-                    usAudioUrl,
-                    ukIpa,
-                    usIpa,
-                    example,
-                },
+                data: { ...plan.data, langeekSyncedAt: new Date() },
             });
 
-            const userLoginId = current?.lesson?.course?.userLoginId;
-            if (userLoginId) {
-                await this.cacheService.invalidateUser(userLoginId);
+            if (plan.changedFields.length > 0) {
+                const userLoginId = current.lesson?.course?.userLoginId;
+                if (userLoginId) {
+                    await this.cacheService.invalidateUser(userLoginId);
+                } else {
+                    // An official word: the learner catalogue is cached globally.
+                    await this.cacheService.invalidateGlobal(
+                        OFFICIAL_CACHE_PREFIX,
+                    );
+                }
+                return { status: 'updated', changedFields: plan.changedFields };
             }
 
-            return { status: 'updated' };
+            return {
+                status: 'skipped',
+                reason: 'no_changes',
+                changedFields: [],
+            };
         } catch (err: unknown) {
             const reason = err instanceof Error ? err.message : String(err);
             return { status: 'error', reason };

@@ -79,6 +79,11 @@ model Word {
   usIpa             String?
   imageThumbnailUrl String?
 
+  /// CEFR level (A1–C2) from Langeek, filled by the dictionary sync.
+  cefrLevel String? @map("cefr_level")
+  /// When a Langeek sync last processed this word (whatever it changed).
+  langeekSyncedAt DateTime? @map("langeek_synced_at") @db.Timestamptz
+
   lessonId    String  @db.Uuid
   // See Lesson.course: words are deleted explicitly (to publish
   // WORDS_DELETED_TOPIC); cascade only keeps a lesson delete from failing.
@@ -89,4 +94,56 @@ model Word {
 
   @@index([lessonId])
   @@map("words")
+}
+
+/// An admin's Langeek sync run over a set of words (A-11). Progress is counted
+/// here by the Kafka consumer, one word at a time, so runs outlive Redis and
+/// can be listed. Values of `scope`, `mode`, `status` and `fields` are checked
+/// in code (`admin-dictionary-sync/dto`), never by the database.
+model WordSyncJob {
+  id         String   @id @db.Uuid
+  createdBy  String   @map("created_by") @db.Uuid
+  scope      String
+  targetId   String?  @map("target_id") @db.Uuid
+  scopeLabel String   @map("scope_label")
+  fields     String[]
+  mode       String
+  status     String
+  retryOfId  String?  @map("retry_of_id") @db.Uuid
+
+  total   Int @default(0)
+  done    Int @default(0)
+  updated Int @default(0)
+  skipped Int @default(0)
+  errored Int @default(0)
+
+  startedAt  DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  items WordSyncItem[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("word_sync_jobs")
+}
+
+/// One word of a sync run and what happened to it. No foreign key to `words`:
+/// the log outlives a deleted word, which is why `word` is a snapshot. Keyed by
+/// (job, word), so a redelivered Kafka message can't count a word twice.
+model WordSyncItem {
+  jobId         String      @map("job_id") @db.Uuid
+  job           WordSyncJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  wordId        String      @map("word_id") @db.Uuid
+  word          String
+  partOfSpeech  String?     @map("part_of_speech")
+  status        String
+  reason        String?
+  changedFields String[]    @map("changed_fields")
+  processedAt   DateTime?   @map("processed_at") @db.Timestamptz
+
+  @@id([jobId, wordId])
+  @@index([jobId, status])
+  @@map("word_sync_items")
 }

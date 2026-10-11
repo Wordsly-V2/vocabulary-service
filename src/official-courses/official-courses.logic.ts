@@ -18,6 +18,7 @@ export const COPIED_WORD_FIELDS = [
     'ukIpa',
     'usIpa',
     'imageThumbnailUrl',
+    'cefrLevel',
 ] as const satisfies readonly (keyof Word)[];
 
 /** Word columns that are not copied (the copy gets its own). */
@@ -26,6 +27,8 @@ export const NOT_COPIED_WORD_FIELDS = [
     'lessonId',
     'createdAt',
     'updatedAt',
+    // When the official word was last synced, not the copy.
+    'langeekSyncedAt',
 ] as const satisfies readonly (keyof Word)[];
 
 export type CopiedWord = Pick<Word, (typeof COPIED_WORD_FIELDS)[number]>;
