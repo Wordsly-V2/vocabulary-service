@@ -174,6 +174,12 @@ export class ProcessWordSyncResultDto {
         description: 'Reason when status is skipped or error',
     })
     reason?: string;
+
+    @ApiPropertyOptional({
+        type: [String],
+        description: 'Field groups written (image, meaning, examples, …)',
+    })
+    changedFields?: string[];
 }
 
 /** Result item when searching user-created words across all courses. */
@@ -324,6 +330,12 @@ export class LangeekWordDetailsDto {
 
     @ApiProperty({ example: 'noun' })
     partOfSpeech: string;
+
+    @ApiPropertyOptional({
+        description: "Langeek's CEFR level for this sense (A1–C2)",
+        example: 'B2',
+    })
+    cefrLevel?: string;
 
     @ApiProperty({ example: 'bˈækwɚd kəmpˌæɾɪbˈɪlɪɾi' })
     pronunciation: string;

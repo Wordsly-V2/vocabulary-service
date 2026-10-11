@@ -19,19 +19,14 @@ import type {
     AdminUserCourses,
     ContentHealth,
 } from './dto/admin-vocabulary.dto';
-
-/** Blank-or-null, the same test for every column the health check reads. */
-const empty = (column: string) =>
-    Prisma.raw(`nullif(trim(w."${column}"), '') IS NULL`);
-
-const MISSING_IPA = Prisma.sql`(${empty('ukIpa')} AND ${empty('usIpa')} AND ${empty('pronunciation')})`;
-const MISSING_AUDIO = Prisma.sql`(${empty('audioUrl')} AND ${empty('ukAudioUrl')} AND ${empty('usAudioUrl')})`;
-const MISSING_MEANING = Prisma.sql`${empty('meaning')}`;
-// The learner's word form saves "no examples" as the JSON `[]`.
-const MISSING_EXAMPLE = Prisma.raw(
-    `coalesce(nullif(trim(w."example"), ''), '[]') = '[]'`,
-);
-const MISSING_IMAGE = Prisma.sql`(${empty('imageUrl')} AND ${empty('imageThumbnailUrl')})`;
+import {
+    INCOMPLETE,
+    MISSING_AUDIO,
+    MISSING_EXAMPLE,
+    MISSING_IMAGE,
+    MISSING_IPA,
+    MISSING_MEANING,
+} from './word-health.sql';
 
 /** The counts every health row carries, over words aliased `w`. */
 const HEALTH_COLUMNS = Prisma.sql`
@@ -41,7 +36,7 @@ const HEALTH_COLUMNS = Prisma.sql`
     count(w."id") FILTER (WHERE ${MISSING_MEANING})::int AS missing_meaning,
     count(w."id") FILTER (WHERE ${MISSING_EXAMPLE})::int AS missing_example,
     count(w."id") FILTER (WHERE ${MISSING_IMAGE})::int AS missing_image,
-    count(w."id") FILTER (WHERE ${MISSING_IPA} OR ${MISSING_AUDIO} OR ${MISSING_MEANING} OR ${MISSING_EXAMPLE})::int AS incomplete`;
+    count(w."id") FILTER (WHERE ${INCOMPLETE})::int AS incomplete`;
 
 /**
  * Admin access to any learner's vocabulary under `/admin/vocabulary`.
@@ -193,7 +188,7 @@ export class AdminVocabularyService {
                 JOIN "lessons" l ON l."id" = w."lessonId"
                 JOIN "courses" c ON c."id" = l."courseId"
                 GROUP BY c."id"
-                HAVING count(w."id") FILTER (WHERE ${MISSING_IPA} OR ${MISSING_AUDIO} OR ${MISSING_MEANING} OR ${MISSING_EXAMPLE}) > 0
+                HAVING count(w."id") FILTER (WHERE ${INCOMPLETE}) > 0
                 ORDER BY incomplete DESC, words DESC, c."id"
                 LIMIT ${limit}`,
             this.prisma.$queryRaw<

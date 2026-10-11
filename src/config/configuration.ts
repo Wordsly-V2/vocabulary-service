@@ -21,4 +21,9 @@ export default () => ({
         cert: process.env.KAFKA_CERT,
         key: process.env.KAFKA_KEY,
     },
+    dictionary: {
+        // Pause between words of an admin Langeek sync, to stay polite to
+        // Langeek and Cambridge on a run over thousands of words.
+        syncDelayMs: parseInt(process.env.LANGEEK_SYNC_DELAY_MS ?? '300', 10),
+    },
 });

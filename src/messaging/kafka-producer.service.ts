@@ -16,6 +16,15 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
 
     constructor(private readonly configService: ConfigService) {}
 
+    /**
+     * Whether sends actually reach a broker. Callers that track a job's
+     * progress check it first: without Kafka a send is a silent no-op and the
+     * job would never finish.
+     */
+    get isEnabled(): boolean {
+        return this.producer !== null;
+    }
+
     async onModuleInit(): Promise<void> {
         const brokers = this.configService.get<string>('kafka.brokers') ?? '';
         const ca = this.configService.get<string>('kafka.ca') ?? '';

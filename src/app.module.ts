@@ -22,6 +22,7 @@ import { WordScopeModule } from './word-scope/word-scope.module';
 import { HealthModule } from './health/health.module';
 import { UserDataModule } from './user-data/user-data.module';
 import { AdminVocabularyModule } from './admin-vocabulary/admin-vocabulary.module';
+import { AdminDictionarySyncModule } from './admin-dictionary-sync/admin-dictionary-sync.module';
 import { OfficialCoursesModule } from './official-courses/official-courses.module';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { RequestContextLogger } from './common/request-context-logger';
@@ -53,6 +54,7 @@ import { RequestContextLogger } from './common/request-context-logger';
         DictionaryModule,
         UserDataModule,
         AdminVocabularyModule,
+        AdminDictionarySyncModule,
         CourseLessonsModule,
         WordScopeModule,
         HttpClientsModule,

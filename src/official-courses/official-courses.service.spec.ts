@@ -39,6 +39,8 @@ const word = (id: string, text: string) => ({
     ukIpa: '/uk/',
     usIpa: '/us/',
     imageThumbnailUrl: null,
+    cefrLevel: 'B1',
+    langeekSyncedAt: null,
     lessonId: 'old-lesson',
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -54,7 +56,12 @@ describe('official course logic', () => {
 
     it('copiedWord keeps the content and drops the rest', () => {
         const copy = copiedWord(word('w1', 'apple'));
-        expect(copy).toMatchObject({ word: 'apple', ukIpa: '/uk/' });
+        expect(copy).toMatchObject({
+            word: 'apple',
+            ukIpa: '/uk/',
+            cefrLevel: 'B1',
+        });
+        expect(copy).not.toHaveProperty('langeekSyncedAt');
         expect(copy).not.toHaveProperty('id');
         expect(copy).not.toHaveProperty('lessonId');
     });

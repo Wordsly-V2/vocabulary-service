@@ -13,6 +13,8 @@ import { CACHE_TTL_SECONDS, CacheKind } from './cache-ttl';
 export interface CacheWriteOptions<T> {
     /** Return false to hand the value back to the caller without caching it. */
     shouldCache?: (value: T) => boolean;
+    /** Skip the read and recompute (the result is still written). */
+    refresh?: boolean;
 }
 
 @Injectable()
@@ -110,14 +112,17 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
             return factory();
         }
 
-        try {
-            const cached = await this.client.get(key);
-            if (cached !== null) {
-                return JSON.parse(cached) as T;
+        if (!options?.refresh) {
+            try {
+                const cached = await this.client.get(key);
+                if (cached !== null) {
+                    return JSON.parse(cached) as T;
+                }
+            } catch (err: unknown) {
+                const message =
+                    err instanceof Error ? err.message : String(err);
+                this.logger.warn(`Cache read failed for ${key}: ${message}`);
             }
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : String(err);
-            this.logger.warn(`Cache read failed for ${key}: ${message}`);
         }
 
         const value = await factory();
