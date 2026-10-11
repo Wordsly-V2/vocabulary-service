@@ -26,6 +26,7 @@ import { AdminDictionarySyncModule } from './admin-dictionary-sync/admin-diction
 import { OfficialCoursesModule } from './official-courses/official-courses.module';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { RequestContextLogger } from './common/request-context-logger';
+import { THROTTLERS } from './common/throttler/throttlers';
 @Module({
     imports: [
         HealthModule,
@@ -38,10 +39,7 @@ import { RequestContextLogger } from './common/request-context-logger';
         // (Langeek/Cambridge) on the caller's behalf and are the one place here
         // where a single user can generate heavy outbound traffic. Applied per
         // controller, not globally — see UserThrottlerGuard for the keying.
-        ThrottlerModule.forRoot([
-            { name: 'lookup', ttl: 60_000, limit: 60 },
-            { name: 'scrape-sync', ttl: 60_000, limit: 5 },
-        ]),
+        ThrottlerModule.forRoot(THROTTLERS),
         AuthModule,
         CacheModule,
         // Before CoursesModule: its `GET /courses/:courseId` would otherwise
