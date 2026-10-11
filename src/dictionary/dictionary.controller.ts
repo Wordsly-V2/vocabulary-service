@@ -29,13 +29,19 @@ import {
 } from './dto/dictionary.dto';
 import { CurrentUser } from '@/auth/jwt/current-user.decorator';
 import { UserThrottlerGuard } from '@/common/throttler/user-throttler.guard';
+import {
+    LOOKUP_THROTTLER,
+    SCRAPE_SYNC_THROTTLER,
+} from '@/common/throttler/throttlers';
 
 @ApiTags('dictionary')
 @Controller('dictionary')
-// Every route here is a lookup that may leave the network. The default is the
-// generous 'lookup' bucket; the sync endpoint overrides it below.
+// Every route here is a lookup that may leave the network: the generous
+// 'lookup' bucket. 'scrape-sync' would otherwise apply to every route too (5 a
+// minute each), so it is skipped here and switched back on for the sync only.
 @UseGuards(UserThrottlerGuard)
-@Throttle({ lookup: { ttl: 60_000, limit: 60 } })
+@Throttle({ [LOOKUP_THROTTLER]: { ttl: 60_000, limit: 60 } })
+@SkipThrottle({ [SCRAPE_SYNC_THROTTLER]: true })
 export class DictionaryController {
     constructor(private readonly dictionaryService: DictionaryService) {}
 
@@ -172,7 +178,8 @@ export class DictionaryController {
     @Post('sync-words-langeek')
     // Fans out one Kafka message per matching word, so it is by far the most
     // expensive thing a caller can ask for.
-    @Throttle({ 'scrape-sync': { ttl: 60_000, limit: 5 } })
+    @Throttle({ [SCRAPE_SYNC_THROTTLER]: { ttl: 60_000, limit: 5 } })
+    @SkipThrottle({ [SCRAPE_SYNC_THROTTLER]: false })
     @ApiOperation({
         summary: "Sync this user's words with Langeek",
         description:
@@ -199,7 +206,9 @@ export class DictionaryController {
     }
 
     @Get('sync-words-langeek/jobs/:jobId')
-    @SkipThrottle()
+    // Polled while a sync runs; reading a Redis hash costs nothing outside.
+    // Each bucket by name: a bare @SkipThrottle() only skips 'default'.
+    @SkipThrottle({ [LOOKUP_THROTTLER]: true, [SCRAPE_SYNC_THROTTLER]: true })
     @ApiOperation({
         summary: 'Get sync job progress (internal)',
         description:
